@@ -3,9 +3,14 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    // Remove the following line if you're not customizing Flowbite styles
+    'node_modules/flowbite-react/**/*.{js,jsx,ts,tsx}',
   ],
   theme: {
     extend: {},
   },
-  plugins: [],
-}
+  plugins: [
+    // Ensure the plugin is correctly invoked with parentheses
+    require('flowbite/plugin')
+  ],
+};
