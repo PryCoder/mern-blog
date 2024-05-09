@@ -6,6 +6,7 @@ import About from "./pages/About"
 import Home from "./pages/Home"
 import Projects from "./pages/Projects"
 import Header from "./components/Header"
+import FooterCon from "./components/Footer"
 
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
   
    
     </Routes>
+    <FooterCon />
    </BrowserRouter>
-  )
+  );
 }
