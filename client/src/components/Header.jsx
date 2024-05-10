@@ -1,10 +1,13 @@
 import { useState } from 'react'; // Import useState hook
-import { Button, Navbar, TextInput } from "flowbite-react";
+import { Avatar, Button, Dropdown, Navbar, TextInput } from "flowbite-react";
 import { Link } from "react-router-dom";
 import { AiOutlineSearch } from 'react-icons/ai';
 import { FaMoon } from 'react-icons/fa';
+import {useSelector} from 'react-redux';
 
 export default function Header() {
+ 
+  const {currentUser} = useSelector(state => state.user)
   // State to manage the visibility of dropdown menu
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -39,13 +42,47 @@ export default function Header() {
           <FaMoon className="text-xl text-black" /> {/* Increase the size of the icon */}
         </div>
       </Button>
+   {currentUser ? (
 
+ <Dropdown
+   arrowIcon={false}
+   inline
+   label={
+   <Avatar
+       alt='user'
+       img={currentUser.profilePicture}
+       className="rounded-full overflow-hidden"
+   />
+   }
+   >
+<Dropdown.Header>
+<span className="block text-sm">@{currentUser.username}</span>
+<span className="block text-sm font-medium truncate">{currentUser.email}</span>
+
+
+
+</Dropdown.Header>
+<Link to={'/dashboard?tab=profile'}>
+<Dropdown.Item>Profile</Dropdown.Item>
+</Link>
+
+<Dropdown.Divider/>
+<Dropdown.Item>Sign out</Dropdown.Item>
+
+ </Dropdown>
+
+   ) :
+  (
+    <Link to='/sign-in'>
+    <Button className="w-20 h-10 px-4 py-2 border-2 border-purple-600 rounded-lg text-black font-semibold flex justify-center items-center whitespace-nowrap ml-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-500 hover:text-white">
+       Sign In
+     </Button>
+   </Link>
+  )
+  
+  }
       {/* Sign In button */}
-      <Link to='/sign-in'>
-       <Button className="w-20 h-10 px-4 py-2 border-2 border-purple-600 rounded-lg text-black font-semibold flex justify-center items-center whitespace-nowrap ml-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-500 hover:text-white">
-          Sign In
-        </Button>
-      </Link>
+      
 
       {/* Dropdown toggle button */}
       <div className="relative lg:hidden">
