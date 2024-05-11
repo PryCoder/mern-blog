@@ -4,6 +4,8 @@ import {BsFacebook, BsInstagram, BsTwitterX,
     BsGithub,  BsDribbble } from 'react-icons/bs';
 
 export default function FooterCon() {
+
+  
   return (
   <Footer container className='border border-t-8 border-teal-500 py-4 px-6'>
   <div className='w-full max-w-7xl mx-auto'>

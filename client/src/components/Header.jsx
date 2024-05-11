@@ -2,12 +2,14 @@ import { useState } from 'react'; // Import useState hook
 import { Avatar, Button, Dropdown, Navbar, TextInput } from "flowbite-react";
 import { Link } from "react-router-dom";
 import { AiOutlineSearch } from 'react-icons/ai';
-import { FaMoon } from 'react-icons/fa';
-import {useSelector} from 'react-redux';
+import { FaMoon, FaSun } from 'react-icons/fa';
+import {useSelector, useDispatch} from 'react-redux';
+import { toggleTheme } from '../redux/theme/themeSlice';
 
 export default function Header() {
- 
+ const dispatch = useDispatch();
   const {currentUser} = useSelector(state => state.user)
+  const {theme} = useSelector(state => state.theme)
   // State to manage the visibility of dropdown menu
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -22,7 +24,7 @@ export default function Header() {
           <TextInput
             type="text"
             placeholder="Search..."
-            inputClassName="pl-10" // Adjust input padding to accommodate the icon
+            inputclassName="pl-10" // Adjust input padding to accommodate the icon
           />
           <AiOutlineSearch className="absolute top-1/2 transform -translate-y-1/2 right-3" />
         </form>
@@ -36,10 +38,11 @@ export default function Header() {
         <Link to="/about" className="text-black mr-6">About</Link>
         <Link to="/projects" className="text-black">Projects</Link>
       </div>
-
-      <Button className="w-12 h-10 hidden sm:inline" color="gray" onClick={() => setShowDropdown(!showDropdown)}>
-        <div className="flex justify-center items-center w-full h-full">
-          <FaMoon className="text-xl text-black" /> {/* Increase the size of the icon */}
+ 
+      <Button className="w-12 h-10 hidden sm:inline" color="gray"  onClick={() => dispatch(toggleTheme())} >
+       <div className="flex justify-center items-center w-full h-full" >
+       {theme === 'light' ? <FaSun className="text-xl " /> : <FaMoon className="text-xl" />}
+         {/* Increase the size of the icon */}
         </div>
       </Button>
    {currentUser ? (
