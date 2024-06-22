@@ -22,6 +22,7 @@ useEffect(() => {
         Profile
     </Sidebar.Item>
     </Link>
+    
     <Sidebar.Item active icon={HiArrowSmRight} className='cursor-pointer'>
         Sign Out
     </Sidebar.Item>
