@@ -9,10 +9,11 @@ import { updateStart, updateSuccess, updateFailure ,
 deleteUserStart,deleteUserSuccess,deleteUserFailure
 ,signoutSuccess,} from '../redux/user/userSlice';
 import {HiOutlineExclamationCircle} from 'react-icons/hi';
+import { Link } from 'react-router-dom';
 
 
 export default function DashProfile() {
-  const { currentUser,error } = useSelector(state => state.user);
+  const { currentUser,error, loading } = useSelector(state => state.user);
   const [imageFile, setImageFile] = useState(null);
   const [imageFileUrl, setImageFileUrl] = useState(null);
   const [imageFileUploadProgress, setImageFileUploadProgress] = useState(null);
@@ -212,9 +213,35 @@ console.log(error.message);
   className="border-gray-300 dark:border-gray-700"
 />
 
-<button type="submit" class="group flex items-center justify-center p-0.5 
-text-center font-medium relative focus:z-10 focus:outline-none text-white bg-gradient-to-br from-purple-600 to-cyan-500 enabled:hover:bg-gradient-to-bl focus:ring-cyan-300 dark:focus:ring-cyan-800 border-0 rounded-lg focus:ring-2"><span class="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-enabled:group-hover:bg-opacity-0 group-enabled:group-hover:text-inherit dark:bg-gray-900
- dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">Update</span></button>
+<button
+  type="submit"
+  className="group flex items-center justify-center p-0.5 text-center font-medium relative focus:z-10 focus:outline-none text-white bg-gradient-to-br from-purple-600 to-cyan-500 hover:bg-gradient-to-bl focus:ring-cyan-300 dark:focus:ring-cyan-800 border-0 rounded-lg focus:ring-2"
+  disabled={loading || imageFileUploading}
+>
+  <span className="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-hover:bg-opacity-0 group-hover:text-inherit dark:bg-gray-900 dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">
+    {loading || imageFileUploading ? 'Update' : 'loading..'}
+  </span>
+</button>
+
+
+
+
+{
+   currentUser.isAdmin && (
+   <Link to={'/create-post'}>
+   <Button 
+   type="button"
+  
+   className="w-full   bg-gradient-to-r from-purple-600 to-pink-600
+           text-white py-1 px-2 rounded-lg text-sm md:text-base hover:bg-gradient-to-r hover:from-purple-700
+           hover:to-pink-700"
+   >
+   Create a post</Button>
+   </Link>
+)
+
+}
+
       </form>
       <div className='text-red-500 flex justify-between mt-5'>
         <span onClick={()=>setShowModal(true)} className='cursor-pointer'>Delete Account</span>
