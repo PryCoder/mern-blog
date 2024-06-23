@@ -6,7 +6,8 @@ import { app } from '../firebase';
 import { CircularProgressbar } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { updateStart, updateSuccess, updateFailure ,
-deleteUserStart,deleteUserSuccess,deleteUserFailure} from '../redux/user/userSlice';
+deleteUserStart,deleteUserSuccess,deleteUserFailure
+,signoutSuccess,} from '../redux/user/userSlice';
 import {HiOutlineExclamationCircle} from 'react-icons/hi';
 
 
@@ -129,6 +130,23 @@ dispatch(deleteUserSuccess(data));
  }
 };;
 
+const handleSignout = async () => {
+try {
+const res = await fetch('/api/user/signout',{
+method:"POST",
+});
+const data = await res.json();
+if (!res.ok) {
+console.log(data.message);
+} else {
+ dispatch(signoutSuccess());
+}
+} catch(error) {
+console.log(error.message);
+}
+
+}
+
   return (
     <div className='max-w-lg mx-auto p-3 w-full'>
       <h1 className='my-7 text-center font-semibold text-3xl'>Profile</h1>
@@ -170,32 +188,37 @@ dispatch(deleteUserSuccess(data));
             {imageFileUploadError}
           </Alert>
         )}
-        <TextInput
-          type='text'
-          id='username'
-          placeholder='Username'
-          defaultValue={currentUser.username} onChange={handleChange}
-        />
-        <TextInput
-          type='email'
-          id='email'
-          placeholder='Email'
-          defaultValue={currentUser.email} onChange={handleChange}
-        />
-        <TextInput
-          type='password'
-          id='password'
-          placeholder='Password' onChange={handleChange}
-        />
-        <Button
-          type='submit'
-          className="w-29 h-10 px-4 py-2 border-2 border-purple-600 rounded-lg text-black font-semibold flex justify-center items-center whitespace-nowrap ml-2 hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-500 hover:text-white">
-          Update
-        </Button>
+       <TextInput
+  type="text"
+  id="username"
+  placeholder="Username"
+  defaultValue={currentUser.username}
+  onChange={handleChange}
+  className="border-gray-300 dark:border-gray-700"
+/>
+<TextInput
+  type="email"
+  id="email"
+  placeholder="Email"
+  defaultValue={currentUser.email}
+  onChange={handleChange}
+  className="border-gray-300 dark:border-gray-700"
+/>
+<TextInput
+  type="password"
+  id="password"
+  placeholder="Password"
+  onChange={handleChange}
+  className="border-gray-300 dark:border-gray-700"
+/>
+
+<button type="submit" class="group flex items-center justify-center p-0.5 
+text-center font-medium relative focus:z-10 focus:outline-none text-white bg-gradient-to-br from-purple-600 to-cyan-500 enabled:hover:bg-gradient-to-bl focus:ring-cyan-300 dark:focus:ring-cyan-800 border-0 rounded-lg focus:ring-2"><span class="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-enabled:group-hover:bg-opacity-0 group-enabled:group-hover:text-inherit dark:bg-gray-900
+ dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">Update</span></button>
       </form>
       <div className='text-red-500 flex justify-between mt-5'>
         <span onClick={()=>setShowModal(true)} className='cursor-pointer'>Delete Account</span>
-        <span className='cursor-pointer'>Sign Out</span>
+        <span onClick={handleSignout} className='cursor-pointer'>Sign Out</span>
       </div>
      {updateUserSuccess && (
   <div className='bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-5' role='alert'>

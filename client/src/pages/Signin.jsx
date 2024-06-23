@@ -87,7 +87,8 @@ const handleSubmit = async (e) => {
           id='password' onChange={handleChange}
           />
           </div>
-          <Button className="bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2 px-2 rounded-lg text-sm md:text-base hover:bg-gradient-to-r hover:from-purple-700
+          <Button className="  bg-gradient-to-r from-purple-600 to-pink-600
+           text-white py-2 px-2 rounded-lg text-sm md:text-base hover:bg-gradient-to-r hover:from-purple-700
            hover:to-pink-700" type="Submit" disabled={loading}>
             {
             loading ? (
@@ -99,6 +100,8 @@ const handleSubmit = async (e) => {
             ) : ("Sign In")
             }
   
+
+
 </Button>
 <OAuth />
         </form>
