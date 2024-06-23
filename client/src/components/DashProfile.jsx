@@ -219,7 +219,7 @@ console.log(error.message);
   disabled={loading || imageFileUploading}
 >
   <span className="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-hover:bg-opacity-0 group-hover:text-inherit dark:bg-gray-900 dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">
-    {loading || imageFileUploading ? 'Update' : 'loading..'}
+    {loading || imageFileUploading ? 'loading..' : 'Update'}
   </span>
 </button>
 
