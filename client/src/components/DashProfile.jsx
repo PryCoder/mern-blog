@@ -216,10 +216,11 @@ console.log(error.message);
 <button
   type="submit"
   className="group flex items-center justify-center p-0.5 text-center font-medium relative focus:z-10 focus:outline-none text-white bg-gradient-to-br from-purple-600 to-cyan-500 hover:bg-gradient-to-bl focus:ring-cyan-300 dark:focus:ring-cyan-800 border-0 rounded-lg focus:ring-2"
-  disabled={loading || imageFileUploading}
+  // disabled={loading || imageFileUploading}
 >
   <span className="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-hover:bg-opacity-0 group-hover:text-inherit dark:bg-gray-900 dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">
-    {loading || imageFileUploading ? 'loading..' : 'Update'}
+    {/* {loading || imageFileUploading ? 'Update' : 'loading.'} */}
+   Update
   </span>
 </button>
 
@@ -262,24 +263,39 @@ console.log(error.message);
     <span className='block sm:inline'>{error}</span>
   </div>
 )}
-<Modal show={showModal} onClose={() => setShowModal(false)} popup size='md'>
-  <Modal.Header className="p-4  ">
-    {/* Header content will be added here */}
-  </Modal.Header>
-  <Modal.Body>
-    {/* Body content goes here */}
-    <div className="text-center">
-    <HiOutlineExclamationCircle className='h-14 w-14 text-gray-400
-    dark:text-gray-200 mb-4 mx-auto'/>
-    <h3 className='mb-5 text-lg text-gray-500
-    dark:text-gray-900'>Are you sure you want to delete your account?</h3>
-    <div className="flex justify-center gap-8">
-    <Button className='mb-4 ml-8 bg-red-700 border border-red-900 text-white px-1 py-1 rounded relative mt-5' onClick={handleDeleteUser}>Yes, I'm sure</Button>
-    <Button  className='mb-4 ml-8 bg-white-900 border border-gray-200 text-black px-1 py-1 rounded relative mt-5' onClick={() => setShowModal(false)}>No, cancel</Button>
-    </div>
-    
-    </div>
-  </Modal.Body>
+<Modal
+  show={showModal}
+  onClose={() => setShowModal(false)}
+  popup
+  size='md'
+>
+  <div className="dark:bg-gray-700">
+    <Modal.Header className="p-4">
+      {/* Header content will be added here */}
+    </Modal.Header>
+    <Modal.Body>
+      <div className="text-center">
+        <HiOutlineExclamationCircle className='h-14 w-14 text-gray-400 dark:text-gray-200 mb-4 mx-auto'/>
+        <h3 className='mb-5 text-lg text-gray-500 dark:text-gray-900'>
+          Are you sure you want to delete your account?
+        </h3>
+        <div className="flex justify-center gap-8">
+          <Button
+            className='mb-4 ml-8 bg-red-700 border border-red-900 text-white px-1 py-1 rounded relative mt-5'
+            onClick={handleDeleteUser}
+          >
+            Yes, I'm sure
+          </Button>
+          <Button
+            className='mb-4 ml-8 bg-white-900 border border-gray-200 text-black px-1 py-1 rounded relative mt-5'
+            onClick={() => setShowModal(false)}
+          >
+            No, cancel
+          </Button>
+        </div>
+      </div>
+    </Modal.Body>
+  </div>
 </Modal>
 
 

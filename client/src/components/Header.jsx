@@ -1,7 +1,7 @@
 import { useState } from 'react'; // Import useState hook
 import { Avatar, Button, Dropdown, Navbar, TextInput } from "flowbite-react";
 import { Link , useLocation} from "react-router-dom";
-import { AiOutlineSearch } from 'react-icons/ai';
+import { AiOutlineMenu, AiOutlineSearch } from 'react-icons/ai';
 import { FaMoon, FaSun } from 'react-icons/fa';
 import {useSelector, useDispatch} from 'react-redux';
 import { toggleTheme } from '../redux/theme/themeSlice';
@@ -69,32 +69,27 @@ console.log(error.message);
       </Button>
    {currentUser ? (
 
- <Dropdown className='dark:border-gray-700 dark:shadow-lg'
-   arrowIcon={false}
-   inline
-   label={
-   <Avatar
-       alt='user'
-       img={currentUser.profilePicture}
-       className="rounded-full overflow-hidden"
-   />
-   }
-   >
-<Dropdown.Header>
-<span className="block text-sm">@{currentUser.username}</span>
-<span className="block text-sm font-medium truncate">{currentUser.email}</span>
-
-
-
-</Dropdown.Header>
-<Link to={'/dashboard?tab=profile'}>
-<Dropdown.Item>Profile</Dropdown.Item>
-</Link>
-
-<Dropdown.Divider/>
-<Dropdown.Item onClick={handleSignout}>Sign out</Dropdown.Item>
-
- </Dropdown>
+    <Dropdown
+    arrowIcon={false}
+    inline
+    label={
+      <Avatar
+        alt='user'
+        img={currentUser.profilePicture}
+        className="rounded-full overflow-hidden w-10 h-10" // Ensure size classes are added
+      />
+    }
+  >
+    <Dropdown.Header>
+      <span className="block text-sm">@{currentUser.username}</span>
+      <span className="block text-sm font-medium truncate">{currentUser.email}</span>
+    </Dropdown.Header>
+    <Link to={'/dashboard?tab=profile'}>
+      <Dropdown.Item>Profile</Dropdown.Item>
+    </Link>
+    <Dropdown.Divider />
+    <Dropdown.Item onClick={handleSignout}>Sign out</Dropdown.Item>
+  </Dropdown>
 
    ) :
   (
@@ -108,9 +103,14 @@ console.log(error.message);
       
 
       {/* Dropdown toggle button */}
-      <div className="relative lg:hidden">
-        <Button className="text-black dark:text-white dark:bg-gray-700" onClick={() => setShowDropdown(!showDropdown)}>Menu</Button>
-        
+ <div className="relative lg:hidden">
+  <Button
+    className="text-black dark:text-white bg-gray-100 shadow-lg dark:bg-gray-700"
+    onClick={() => setShowDropdown(!showDropdown)}
+  >
+    <AiOutlineMenu className="text-xl" />
+  </Button>
+
         {/* Dropdown content */}
         {showDropdown && (
           <div className="absolute bg-white dark:bg-gray-700 top-full left-0 mt-1 w-40 py-2 rounded-lg shadow-lg">
