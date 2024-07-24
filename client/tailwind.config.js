@@ -11,6 +11,6 @@ export default {
   },
   plugins: [
     // Ensure the plugin is correctly invoked with parentheses
-    require('flowbite/plugin')
+    require('flowbite/plugin'),require('tailwind-scrollbar')
   ],
 };
