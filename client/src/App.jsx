@@ -10,6 +10,7 @@ import FooterCon from './components/Footer';
 import PrivateRoute from './components/PrivateRoute';
 import CreatePost from './pages/CreatePost';
 import OnlyAdminPrivateRoute from './components/OnlyAdminPrivateRoute';
+import UpdatePost from './pages/UpdatePost';
 
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
         {/* Admin-only routes */}
         <Route element={<OnlyAdminPrivateRoute />}>
           <Route path="/create-post" element={<CreatePost />} />
+          <Route path="/update-post/:postId" element={<UpdatePost />} />
         </Route>
 
         {/* Default route or 404 page */}
