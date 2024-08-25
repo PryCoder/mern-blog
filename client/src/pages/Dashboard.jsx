@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import DashSidebar from '../components/DashSidebar';
 import DashProfile from '../components/DashProfile';
 import DashPosts from '../components/DashPosts';
+import DashUsers from '../components/DashUsers';
 
 export default function Dashboard() {
   const location = useLocation();
@@ -23,9 +24,10 @@ export default function Dashboard() {
         <DashSidebar />
       </div>
       <div className="flex-1 p-4">
-        {/* Profile or Posts */}
+        {/* Conditional rendering of components based on the 'tab' state */}
         {tab === 'profile' && <DashProfile />}
         {tab === 'posts' && <DashPosts />}
+        {tab === 'users' && <DashUsers />}
       </div>
     </div>
   );
