@@ -110,7 +110,6 @@ export default function DashProfile() {
        setUpdateUserError(error.message);
     }
   };
-
   const profilePicture = currentUser ? currentUser.profilePicture : null;
 
 const handleDeleteUser = async () => {
