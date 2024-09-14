@@ -1,7 +1,100 @@
-import React from 'react'
+import { useEffect, useState } from 'react';
+import { Spinner } from 'flowbite-react';
+import { Link } from 'react-router-dom';
 
 export default function Home() {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch posts with populated userId field
+        const postRes = await fetch('/api/post/getPosts?limit=15');
+        if (!postRes.ok) throw new Error('Failed to fetch posts');
+        const postData = await postRes.json();
+
+        setPosts(postData.posts || []); // Ensure it's always an array
+        setError(false); // Reset error if successful
+      } catch (err) {
+        console.error('Error fetching posts:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Spinner size="xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-red-600">Failed to load posts. Please try again later.</p> {/* Darker error text */}
+      </div>
+    );
+  }
+
   return (
-    <div>Home</div>
-  )
+    <div className="max-w-6xl mx-auto p-4">
+      <h1 className="text-4xl font-extrabold text-center my-6 text-gray-900 dark:text-white">Latest Posts</h1> {/* Darker, bolder title */}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ">
+        {/* Render the posts */}
+        {posts.length > 0 ? (
+          posts.map((post) => (
+            <div key={post._id} className="bg-violet-700  rounded-lg shadow-lg">
+              {/* User Profile Section */}
+              <div className="flex items-center p-4">
+                {post.userId?.profilePicture ? (
+                  <img
+                    src={post.userId.profilePicture}
+                    alt={post.userId.username || 'Unknown User'}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-300"></div> // Placeholder if no profile picture
+                )}
+                <span className="ml-3 font-bold text-gray-800 dark:text-white ">
+                  {post.userId?.username || 'Unknown User'} {/* Darker and bold username */}
+                </span>
+              </div>
+
+              {/* Post Image */}
+              <Link to={`/post/${post.slug}`}>
+                <img
+                  src={post.image}
+                  alt={post.title || 'Post Image'}
+                  className="w-full h-72 object-cover cursor-pointer"
+                />
+              </Link>
+
+              {/* Post Title and Time */}
+              <div className="p-4">
+                <Link to={`/post/${post.slug}`}>
+                  <h3 className="font-bold text-lg text-gray-900 cursor-pointer dark:text-white">{post.title}</h3> {/* Darker, bold title */}
+                </Link>
+                <p className="text-sm text-gray-900 mt-2 "> {/* Slightly darker date text */}
+                  {new Date(post.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-center text-gray-600">No posts available</p>
+        )}
+      </div>
+    </div>
+  );
 }

@@ -16,6 +16,8 @@ import ScrollToTop from './components/ScrollToTop';
 
 
 
+
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -35,6 +37,8 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
       
         </Route>
+
+
 
         {/* Admin-only routes */}
         <Route element={<OnlyAdminPrivateRoute />}>
