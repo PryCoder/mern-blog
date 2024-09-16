@@ -87,11 +87,11 @@ export default function FooterCon() {
   by={`${new Date().getFullYear()} Epic Shot `} // Concatenate a space with "Epic Shot" and the year
 />
  <div className='flex gap-6 sm:mt-0 mt-4 sm:justify-center'>
-    <Footer.Icon href='#'  icon={BsFacebook}/>
-     <Footer.Icon href='#'  icon={BsInstagram}/>
-      <Footer.Icon href='#'  icon={BsTwitterX}/>
+    
+     <Footer.Icon href='https://www.instagram.com/Priyanshu05134/'  icon={BsInstagram}/>
+      <Footer.Icon href='https://x.com/Priyans48794092'  icon={BsTwitterX}/>
        <Footer.Icon href='https://github.com/PryCoder'  icon={BsGithub}/>
-        <Footer.Icon href='#'  icon={BsDribbble}/>
+        <Footer.Icon href='https://dribbble.com/Priyanshu0707'  icon={BsDribbble}/>
 
  </div>
     </div>

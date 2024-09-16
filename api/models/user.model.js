@@ -14,18 +14,24 @@ const userSchema = new mongoose.Schema({
     password: {
         type: String,
         required: true,
-        
     },
-    profilePicture:{
-    type: String,
-    default: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
+    profilePicture: {
+        type: String,
+        default: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png",
     },
     isAdmin: {
-    type:Boolean,
-    default:false,
+        type: Boolean,
+        default: false,
     },
-}, {timestamps: true}
-);
+    followers: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
+    following: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }],
+}, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);
 

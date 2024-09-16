@@ -18,6 +18,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isSearchVisible, setIsSearchVisible] = useState(false);  // New state for mobile search
 
   useEffect(() => {
     // Optional: Add side effects here if needed
@@ -73,9 +74,15 @@ export default function Header() {
     console.log(`Navigating to profile for user ID: ${userId}`);
     setSearchQuery('');
     setSearchResults([]);
-    navigate(`/dashboard?tab=profile/${userId}`);
+    navigate(`/profile/${userId}`);
   };
-  
+
+  // Handle search visibility toggle for mobile
+  const handleSearchToggle = () => {
+    setIsSearchVisible(!isSearchVisible);
+    setSearchResults([]);  // Clear any previous search results
+    setSearchQuery('');     // Clear the search query
+  };
 
   return (
     <Navbar className="bg-white px-2 py-2.5 dark:border-gray-700 dark:bg-gray-800 sm:px-4 border-b-2 flex justify-between items-center">
@@ -83,6 +90,8 @@ export default function Header() {
         <span className="px-2 py-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-lg text-white">Epic</span>
         Shot
       </Link>
+
+      {/* Large Screen Search */}
       <div className="relative hidden lg:inline dark:border-gray-700">
         <form className="relative">
           <TextInput
@@ -116,9 +125,51 @@ export default function Header() {
           )}
         </form>
       </div>
-      <Button className="w-12 h-10 lg:hidden flex justify-center items-center rounded-xl shadow-sm-lg bg-gray-100 dark:bg-gray-700">
+
+      {/* Mobile Search Button */}
+      <Button
+        className="w-12 h-10 lg:hidden flex justify-center items-center rounded-xl shadow-sm-lg bg-gray-100 dark:bg-gray-700"
+        onClick={handleSearchToggle}
+      >
         <AiOutlineSearch className="text-xl dark:text-white text-black" />
       </Button>
+
+      {/* Mobile Search Input */}
+      {isSearchVisible && (
+        <div className="absolute top-14 left-0 w-full px-4 bg-white dark:bg-gray-800 z-50 lg:hidden">
+          <form className="relative">
+            <TextInput
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search..."
+              className="pl-10 w-full"
+            />
+            <AiOutlineSearch className="absolute top-1/2 transform -translate-y-1/2 right-3" />
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg">
+                {searchResults.map(user => (
+                  <div
+                    key={user._id}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+                    onClick={() => handleResultClick(user._id)}
+                    aria-label={`View ${user.username}'s profile`}
+                  >
+                    <div className="flex items-center">
+                      <img
+                        src={user.profilePicture}
+                        alt={user.username}
+                        className="w-8 h-8 rounded-full object-cover mr-2"
+                      />
+                      <span>{user.username}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </form>
+        </div>
+      )}
 
       <div className="hidden lg:inline">
         <Link to="/" className="dark:text-white text-black mr-6">Home</Link>
@@ -153,7 +204,7 @@ export default function Header() {
             <span className="block text-sm">@{currentUser.username}</span>
             <span className="block text-sm font-medium truncate">{currentUser.email}</span>
           </Dropdown.Header>
-          <Link to={'/dashboard?tab=profile'}>
+          <Link to='/dashboard?tab=profile'>
             <Dropdown.Item>Profile</Dropdown.Item>
           </Link>
           <Dropdown.Divider />

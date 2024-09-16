@@ -97,9 +97,17 @@ export default function CreatePost() {
                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     >
                         <option value="uncategorized">Select a category</option>
-                        <option value="javascript">Javascript</option>
-                        <option value="reactjs">React.js</option>
-                        <option value="nextjs">Next.js</option>
+                        <option className='bg-yellow-400' value="Thak gaya hoon, lekin ruk nahi sakta">Thak gaya hoon, lekin ruk nahi sakta</option>
+                        <option value="badmoshi">बदमोशी</option>
+                        <option value="Lmao ded">Lmao ded</option>
+                          <option value="kabhi lafda kerna hai toh batana">kabhi lafda kerna hai toh batana</option>
+                           <option value="Kyun We Met">Kyun We Met</option>
+                            <option value="Padhai Chalu">Padhai Chalu</option>
+                             <option value="Tunak Tunak Music Stops">Tunak Tunak Music Stops</option>
+                            <option value="GirlBoss hu Raja">GirlBoss hu Raja</option>
+                             <option value="Babumoshai Zindagi honi hi nahi chahiye">Babumoshai Zindagi honi hi nahi chahiye</option>
+                              
+                            
                     </Select>
                 </div>
                 <div className='flex gap-4 items-center justify-center border-4 border-teal-500 border-dotted p-3'>

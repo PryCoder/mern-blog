@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 
-export default function InstagramProfile() {
-  const { currentUser } = useSelector((state) => state.user);
+export default function UserProfile() {
+  const { userId } = useParams();
   const [user, setUser] = useState(null);
   const [userPosts, setUserPosts] = useState([]);
   const [showMore, setShowMore] = useState(true);
@@ -11,16 +10,13 @@ export default function InstagramProfile() {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [error, setError] = useState('');
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const [followersList, setFollowersList] = useState([]);
-  const [followingList, setFollowingList] = useState([]);
 
+  // Fetch user data and posts
   useEffect(() => {
     const fetchUserData = async () => {
       setLoadingUser(true);
       try {
-        const userRes = await fetch(`/api/user/${currentUser._id}`, {
+        const userRes = await fetch(`/api/user/${userId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
           },
@@ -41,7 +37,7 @@ export default function InstagramProfile() {
     const fetchPosts = async () => {
       setLoadingPosts(true);
       try {
-        const res = await fetch(`/api/post/getposts?userId=${currentUser._id}`);
+        const res = await fetch(`/api/post/getposts?userId=${userId}`);
         const data = await res.json();
         if (res.ok) {
           setUserPosts(data.posts);
@@ -59,44 +55,9 @@ export default function InstagramProfile() {
 
     fetchUserData();
     fetchPosts();
-  }, [currentUser._id]);
+  }, [userId]);
 
-  const fetchFollowers = async () => {
-    try {
-      const res = await fetch(`/api/user/${currentUser._id}/followers`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setFollowersList(data.followers);
-      } else {
-        setError('Failed to fetch followers');
-      }
-    } catch (error) {
-      setError('Error fetching followers');
-    }
-  };
-
-  const fetchFollowing = async () => {
-    try {
-      const res = await fetch(`/api/user/${currentUser._id}/following`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setFollowingList(data.following);
-      } else {
-        setError('Failed to fetch following');
-      }
-    } catch (error) {
-      setError('Error fetching following');
-    }
-  };
-
+  // Handle follow action
   const handleFollow = async () => {
     try {
       const res = await fetch('/api/user/follow', {
@@ -105,11 +66,11 @@ export default function InstagramProfile() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ userId: currentUser._id }),
+        body: JSON.stringify({ userId }),
       });
 
       if (res.ok) {
-        setIsFollowing(true);
+        setIsFollowing(true); // Update follow state
         setUser((prevUser) => ({
           ...prevUser,
           followersCount: prevUser.followersCount + 1,
@@ -123,6 +84,7 @@ export default function InstagramProfile() {
     }
   };
 
+  // Handle unfollow action
   const handleUnfollow = async () => {
     try {
       const res = await fetch('/api/user/unfollow', {
@@ -131,11 +93,11 @@ export default function InstagramProfile() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ userId: currentUser._id }),
+        body: JSON.stringify({ userId }),
       });
 
       if (res.ok) {
-        setIsFollowing(false);
+        setIsFollowing(false); // Update follow state
         setUser((prevUser) => ({
           ...prevUser,
           followersCount: prevUser.followersCount - 1,
@@ -149,10 +111,11 @@ export default function InstagramProfile() {
     }
   };
 
+  // Fetch more posts
   const handleShowMore = async () => {
     const startIndex = userPosts.length;
     try {
-      const res = await fetch(`/api/post/getposts?userId=${currentUser._id}&startIndex=${startIndex}`);
+      const res = await fetch(`/api/post/getposts?userId=${userId}&startIndex=${startIndex}`);
       const data = await res.json();
       if (res.ok) {
         setUserPosts((prev) => [...prev, ...data.posts]);
@@ -165,20 +128,6 @@ export default function InstagramProfile() {
     } catch (error) {
       setError('Error fetching more posts');
     }
-  };
-
-  const toggleFollowersModal = async () => {
-    if (!showFollowersModal) {
-      await fetchFollowers(); // Fetch followers when opening the modal
-    }
-    setShowFollowersModal(!showFollowersModal);
-  };
-
-  const toggleFollowingModal = async () => {
-    if (!showFollowingModal) {
-      await fetchFollowing(); // Fetch following when opening the modal
-    }
-    setShowFollowingModal(!showFollowingModal);
   };
 
   if (loadingUser) {
@@ -208,23 +157,19 @@ export default function InstagramProfile() {
             </h2>
             <div className="flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-500 text-center sm:text-left">
               <span>{userPosts.length} posts</span>
-              <button onClick={toggleFollowersModal} className="text-blue-500">
-                {user.followersCount || 0} followers
-              </button>
-              <button onClick={toggleFollowingModal} className="text-blue-500">
-                {user.followingCount || 0} following
-              </button>
+              <span>{user.followersCount || 0} followers</span>
+              <span>{user.followingCount || 0} following</span>
             </div>
           </div>
         </div>
-        {/* <div>
+        <div>
           <button
             onClick={isFollowing ? handleUnfollow : handleFollow}
             className={`px-4 py-1 border rounded text-sm font-medium ${isFollowing ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}
           >
             {isFollowing ? 'Unfollow' : 'Follow'}
           </button>
-        </div> */}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-4 mt-16">
@@ -257,66 +202,6 @@ export default function InstagramProfile() {
         >
           Show More
         </button>
-      )}
-
-      {/* Followers Modal */}
-      {showFollowersModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="dark:bg-gray-600 bg-gray-200 p-5 rounded shadow-lg max-w-md w-full">
-            <h3 className="text-lg  dark:text-gray-100 font-semibold mb-4">Followers</h3>
-            <ul>
-              {followersList.length > 0 ? (
-                followersList.map((follower) => (
-                  <li key={follower._id} className="mb-2 flex items-center space-x-3">
-                    <img
-                      src={follower.profilePicture || '/default-avatar.jpg'}
-                      alt={follower.username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <Link to={`/profile/${follower._id}`} className="text-blue-500">
-                      {follower.username}
-                    </Link>
-                  </li>
-                ))
-              ) : (
-                <p>No followers yet</p>
-              )}
-            </ul>
-            <button onClick={toggleFollowersModal} className="mt-4 px-4 py-2 bg-red-500 text-white rounded">
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Following Modal */}
-      {showFollowingModal && (
-        <div className="fixed inset-0 flex items-center justify-center  bg-opacity-50 z-50">
-          <div className="dark:bg-gray-600 bg-gray-200 p-5 rounded shadow-lg max-w-md w-full">
-            <h3 className="text-lg dark:text-gray-100 font-semibold mb-4">Following</h3>
-            <ul>
-              {followingList.length > 0 ? (
-                followingList.map((followee) => (
-                  <li key={followee._id} className="mb-2 flex items-center space-x-3">
-                    <img
-                      src={followee.profilePicture || '/default-avatar.jpg'}
-                      alt={followee.username}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                    <Link to={`/profile/${followee._id}`} className="text-blue-500">
-                      {followee.username}
-                    </Link>
-                  </li>
-                ))
-              ) : (
-                <p>Not following anyone yet</p>
-              )}
-            </ul>
-            <button onClick={toggleFollowingModal} className="mt-4 px-4 py-2 bg-red-500 text-white rounded">
-              Close
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

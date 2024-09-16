@@ -13,6 +13,7 @@ import OnlyAdminPrivateRoute from './components/OnlyAdminPrivateRoute';
 import UpdatePost from './pages/UpdatePost';
 import PostPage from './pages/PostPage';
 import ScrollToTop from './components/ScrollToTop';
+import UserProfile from './components/UserProfile';
 
 
 
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/sign-up" element={<SignUp />} />
         <Route path="/projects" element={<Projects />} />
         <Route path="/post/:postSlug" element={<PostPage/>} />
+        <Route path="/profile/:userId" element={<UserProfile />} />
 
 
         {/* Private routes accessible only when authenticated */}
@@ -39,10 +41,10 @@ export default function App() {
         </Route>
 
 
-
+<Route path="/create-post" element={<CreatePost />} />
         {/* Admin-only routes */}
         <Route element={<OnlyAdminPrivateRoute />}>
-          <Route path="/create-post" element={<CreatePost />} />
+          
           <Route path="/update-post/:postId" element={<UpdatePost />} />
         </Route>
 

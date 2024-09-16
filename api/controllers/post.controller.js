@@ -1,23 +1,31 @@
 import Post from '../models/post.model.js';
 import { errorHandler } from '../utils/error.js';
-
 export const create = async (req, res, next) => {
-  if (!req.user.isAdmin) {
-    return next(errorHandler(403, 'You are not allowed to create a post'));
-  }
+  // Check if user is authenticated
+  // if (!user) {
+  //    console.log('User is not authenticated. Redirecting to sign in.');
+  //   return next(errorHandler(500, 'Please sign in to create a post'));
+  // }
+  
+  // Check if required fields are provided
   if (!req.body.title || !req.body.content) {
     return next(errorHandler(400, 'Please provide all required fields'));
   }
+  
+  // Generate a slug from the title
   const slug = req.body.title
     .split(' ')
     .join('-')
     .toLowerCase()
     .replace(/[^a-zA-Z0-9-]/g, '');
+  
+  // Create a new post object
   const newPost = new Post({
     ...req.body,
     slug,
     userId: req.user.id,
   });
+
   try {
     const savedPost = await newPost.save();
     res.status(201).json(savedPost);
@@ -25,6 +33,7 @@ export const create = async (req, res, next) => {
     next(error);
   }
 };
+
 export const getposts = async (req, res, next) => {
   try {
     const startIndex = parseInt(req.query.startIndex) || 0;
@@ -101,3 +110,28 @@ export const deletepost = async (req, res, next) => {
          next(error);
          }
         }
+
+export const likePost = async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) {
+      return next(errorHandler(404, 'Post not found'));
+    }
+
+    const userIndex = post.likes.indexOf(req.user.id);
+    if (userIndex === -1) {
+      // Like the post
+      post.numberOfLikes += 1;
+      post.likes.push(req.user.id);
+    } else {
+      // Unlike the post
+      post.numberOfLikes -= 1;
+      post.likes.splice(userIndex, 1);
+    }
+
+    await post.save();
+    res.status(200).json(post);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 const postSchema = new mongoose.Schema(
   {
     userId: {
-      type: mongoose.Schema.Types.ObjectId, // Use ObjectId to reference the User model
-      ref: 'User', // Reference the User model
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User', // Reference to User model
       required: true,
     },
     content: {
@@ -29,8 +29,16 @@ const postSchema = new mongoose.Schema(
       type: String,
       default: 'uncategorized',
     },
+    likes: {
+      type: Array,
+      default: [], // Store user IDs who liked the post
+    },
+    numberOfLikes: {
+      type: Number,
+      default: 0, // Number of likes
+    },
   },
-  { timestamps: true } // Add timestamps for createdAt and updatedAt
+  { timestamps: true } // Automatically manage createdAt and updatedAt fields
 );
 
 const Post = mongoose.model('Post', postSchema);
