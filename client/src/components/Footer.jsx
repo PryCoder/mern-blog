@@ -89,7 +89,7 @@ export default function FooterCon() {
  <div className='flex gap-6 sm:mt-0 mt-4 sm:justify-center'>
     
      <Footer.Icon href='https://www.instagram.com/Priyanshu05134/'  icon={BsInstagram}/>
-      <Footer.Icon href='https://x.com/Priyans48794092'  icon={BsTwitterX}/>
+      <Footer.Icon href='https://x.com/PriyanshuG34'  icon={BsTwitterX}/>
        <Footer.Icon href='https://github.com/PryCoder'  icon={BsGithub}/>
         <Footer.Icon href='https://dribbble.com/Priyanshu0707'  icon={BsDribbble}/>
 
