@@ -78,7 +78,7 @@ export default function Home() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts.length > 0 ? (
           posts.map((post, index) => (
-            <div key={post._id} className="bg-violet-700 rounded-lg shadow-lg">
+            <div key={post._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
               {/* User Profile Section */}
               <div className="flex items-center p-4">
                 {post.userId?.profilePicture ? (
