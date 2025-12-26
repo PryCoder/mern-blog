@@ -4,12 +4,13 @@ import dotenv from 'dotenv';
 import userRoutes from './routes/user.route.js';
 import authRoutes from './routes/auth.route.js';
 import postRoutes from './routes/post.route.js';
+import storiesRoutes from './routes/stories.route.js';
 import commentRoutes from './routes/comment.route.js';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 
 dotenv.config();
-
+console.log(process.env.MONGO);
 mongoose.connect(process.env.MONGO)
 .then(()=>{ console.log('MongoDB is connected');
 }).catch((err)=> {console.log(err);
@@ -25,11 +26,16 @@ app.use(cookieParser());
 app.listen(3000, ()=>{
     console.log('Server Started on port 3000');
 });
-
+app.use((req, res, next) => {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    next();
+  });
+  
 app.use('/api/user', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/post',postRoutes);
 app.use('/api/comment', commentRoutes);
+app.use('/api/stories', storiesRoutes)
 
 app.use(express.static(path.join(__dirname, '/client/dist')));
 

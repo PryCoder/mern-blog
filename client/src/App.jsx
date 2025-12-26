@@ -14,6 +14,10 @@ import UpdatePost from './pages/UpdatePost';
 import PostPage from './pages/PostPage';
 import ScrollToTop from './components/ScrollToTop';
 import UserProfile from './components/UserProfile';
+import CreateStoryPage from './components/CreateStories';
+import StoriesFeedPage from './components/StoriesFeed';
+import StoryManagementPage from './components/StoryManagement';
+import HighlightsPage from './components/HighlightPage';
 
 
 
@@ -32,6 +36,13 @@ export default function App() {
         <Route path="/projects" element={<Projects />} />
         <Route path="/post/:postSlug" element={<PostPage/>} />
         <Route path="/profile/:userId" element={<UserProfile />} />
+        <Route path="/stories" element={<StoriesFeedPage />} />
+                <Route path="/stories/create" element={<CreateStoryPage />} />
+                <Route path="/stories/:storyId" element={<StoriesFeedPage />} />
+                <Route path="/highlights" element={<HighlightsPage />} />
+                <Route path="/highlights/:userId" element={<HighlightsPage />} />
+                <Route path="/manage-stories" element={<StoryManagementPage />} />
+  
 
 
         {/* Private routes accessible only when authenticated */}
