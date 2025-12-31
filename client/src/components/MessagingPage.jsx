@@ -715,7 +715,7 @@ const MessagesPage = () => {
           if (file.type === 'application/pdf') messageType = 'pdf';
           
           // Send to backend
-          const response = await axios.post(`${API_BASE_URL}/messages/send`, 
+          const response = await axios.post(`/api/messages/send`, 
             {
               receiverId: selectedUser._id,
               content: newMessage.trim() || '',
@@ -810,7 +810,7 @@ const MessagesPage = () => {
         await handleUploadFiles(selectedFiles);
       } else {
         // Handle text message
-        response = await axios.post(`${API_BASE_URL}/messages/send`, 
+        response = await axios.post(`/api/messages/send`, 
           {
             receiverId: selectedUser._id,
             content: newMessage.trim(),

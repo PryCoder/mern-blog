@@ -45,18 +45,13 @@ class SocketService {
     
     console.log('SocketService: Creating new connection...');
     const SOCKET_URL = import.meta.env.PROD
-  ? 'https://epicshot.onrender.com'
+  ? window.location.origin
   : 'http://localhost:3000';
 
-  this.socket = io(SOCKET_URL, {
-    auth: { token },
-    transports: ['websocket'],
-    withCredentials: true,
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 1000,
-    timeout: 20000
-  });
+this.socket = io(SOCKET_URL, {
+  auth: { token },
+  transports: ['websocket'],
+});
   
 
     this.setupEventListeners();
