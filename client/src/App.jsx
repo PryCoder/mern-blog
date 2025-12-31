@@ -18,7 +18,7 @@ import CreateStoryPage from './components/CreateStories';
 import StoriesFeedPage from './components/StoriesFeed';
 import StoryManagementPage from './components/StoryManagement';
 import HighlightsPage from './components/HighlightPage';
-
+import MessagingPage from './components/MessagingPage';
 
 
 
@@ -42,6 +42,8 @@ export default function App() {
                 <Route path="/highlights" element={<HighlightsPage />} />
                 <Route path="/highlights/:userId" element={<HighlightsPage />} />
                 <Route path="/manage-stories" element={<StoryManagementPage />} />
+                <Route path="/direct/inbox" element={<MessagingPage />} />
+                <Route path="/direct/t/:conversationId" element={<MessagingPage />} />
   
 
 

@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+.messages-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Custom scrollbar */
+.messages-container-inner::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container-inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-container-inner::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.messages-container-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .messages-container-inner::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .messages-container-inner::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Message animations */
+@keyframes message-appear {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-bubble {
+  animation: message-appear 0.3s ease-out;
+}
+
+/* Connection status animation */
+@keyframes reconnect-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.reconnecting {
+  animation: reconnect-pulse 1.5s infinite;
+}
+
+/* Typing animation */
+@keyframes typing-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.typing-dot {
+  animation: typing-bounce 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* File upload progress animation */
+@keyframes progress-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(33, 150, 243, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(33, 150, 243, 0.8);
+  }
+}
+
+.uploading-file {
+  animation: progress-glow 2s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .messages-container {
+    flex-direction: column;
+  }
+  
+  .conversations-sidebar {
+    display: none;
+  }
+  
+  .chat-area {
+    flex: 1;
+  }
+}
+
+/* Print styles */
+@media print {
+  .messages-container {
+    overflow: visible;
+    height: auto;
+  }
+  
+  .message-input-container,
+  .connection-status {
+    display: none;
+  }
+}

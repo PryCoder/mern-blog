@@ -79,6 +79,21 @@ export const signout = (req, res, next) => {
     }
 };
 
+// Get following list for messaging
+export const getFollowingForMessaging = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate('following', 'username profilePicture');
+    
+    if (!user) {
+      return next(errorHandler(404, 'User not found'));
+    }
+
+    res.status(200).json({ following: user.following });
+  } catch (error) {
+    next(error);
+  }
+};
 export const getUsers = async (req, res, next) => {
  
   try {

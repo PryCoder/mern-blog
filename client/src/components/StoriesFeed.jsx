@@ -66,8 +66,9 @@ export default function InstagramStories() {
             setLoading(true);
             const token = localStorage.getItem('token');
             const response = await fetch('/api/stories/following', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+                headers: { 'Authorization': `Bearer ${token}` },credentials: 'include', 
+            }); 
+            
             const data = await response.json();
             if (response.ok) {
                 setStories(data.stories);
@@ -200,7 +201,7 @@ export default function InstagramStories() {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                }
+                }, credentials: 'include', 
             });
         } catch (err) {
             console.error('Error marking as viewed:', err);
@@ -215,7 +216,7 @@ export default function InstagramStories() {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
+                }, credentials: 'include', 
                 body: JSON.stringify({ emoji: '❤️' })
             });
             setShowReactions(true);
@@ -235,7 +236,7 @@ export default function InstagramStories() {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
-                },
+                }, credentials: 'include', 
                 body: JSON.stringify({ text: replyText })
             });
             setReplyText('');
@@ -248,7 +249,7 @@ export default function InstagramStories() {
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`/api/stories/${storyId}/viewers`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include', 
             });
             const data = await response.json();
             if (response.ok) {

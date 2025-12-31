@@ -60,7 +60,7 @@ export const signin = async (req, res, next) => {
 
     res.status(200)
       .cookie('access_token', token, { httpOnly: true })
-      .json(rest);
+      .json({user:rest,token:token});
   } catch (error) {
     next(error);
   }

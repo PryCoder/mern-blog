@@ -31,16 +31,18 @@ const handleSubmit = async (e) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData),
     });
-
+    
    
 
     const data = await res.json();
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     if(data.success === false) {
       dispatch(signInFailure(data.message));
     }
    
     if(res.ok) {
-      dispatch(signInSuccess(data));
+      dispatch(signInSuccess(data.user));
       navigate('/');
     }// Handle successful signup, e.g., redirect to a different page
   } catch (error) {
