@@ -9,14 +9,18 @@ const socketUsers = new Map(); // socketId -> userId
 const setupSocketIO = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: ['http://localhost:5173', 'https://epicshot.onrender.com'],
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      origin: [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'https://epicshot.onrender.com'
+      ],
+      credentials: true
     },
-    transports: ['websocket', 'polling'],
-    pingTimeout: 60000,
-    pingInterval: 25000
+    transports: ['websocket'], // IMPORTANT
+    pingTimeout: 30000,
+    pingInterval: 10000
   });
+  
 
   // Socket middleware for authentication
   io.use(async (socket, next) => {
