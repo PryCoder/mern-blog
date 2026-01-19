@@ -94,7 +94,7 @@ const firebaseConfig = {
 
 const storage = getStorage(app);
 
-// Modern Color Scheme
+// Modern Color Scheme (default light mode)
 const COLORS = {
   primary: {
     main: '#6366f1',
@@ -108,14 +108,14 @@ const COLORS = {
     dark: '#059669',
   },
   background: {
-    default: '#0f172a',
-    paper: '#1e293b',
-    surface: '#334155',
+    default: '#ffffff',
+    paper: '#f8fafc',
+    surface: '#e2e8f0',
   },
   text: {
-    primary: '#f1f5f9',
-    secondary: '#cbd5e1',
-    disabled: '#64748b',
+    primary: '#000000',
+    secondary: '#64748b',
+    disabled: '#94a3b8',
   },
 };
 
@@ -299,6 +299,7 @@ const ShimmerButton = styled(Button)(({ theme }) => ({
 
 const MessagesPage = () => {
   const { currentUser } = useSelector((state) => state.user);
+  const { theme } = useSelector(state => state.theme);
   const navigate = useNavigate();
   const { conversationId: urlConversationId } = useParams();
   
@@ -1243,7 +1244,7 @@ useEffect(() => {
       bgcolor: COLORS.background.default,
       color: COLORS.text.primary,
       fontFamily: FONT_FAMILIES.primary,
-    }}>
+    }} className="dark:bg-gray-800 dark:text-white">
       {/* Connection Status */}
       <Slide direction="down" in={!socketConnected} mountOnEnter unmountOnExit>
         <Box sx={{ 
@@ -1252,7 +1253,7 @@ useEffect(() => {
           left: 0,
           right: 0,
           zIndex: 9999
-        }}>
+        }} className="dark:bg-yellow-900 dark:border-yellow-700">
           <Alert 
             severity="warning" 
             sx={{ 
@@ -1278,7 +1279,7 @@ useEffect(() => {
         m: 2,
         mr: { md: 1 },
         overflow: 'hidden',
-      }}>
+      }} className="dark:bg-gray-900/70 dark:border-gray-700/10">
         {/* Sidebar Header */}
         <Box sx={{ 
           p: 3, 
@@ -1286,7 +1287,7 @@ useEffect(() => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-        }}>
+        }} className="dark:border-gray-700/10">
           <Box display="flex" alignItems="center" gap={2}>
             <Avatar 
               src={user.profilePicture}
@@ -1590,7 +1591,7 @@ useEffect(() => {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 2,
-            }}>
+            }} className="dark:bg-gray-900/70 dark:border-gray-700/10">
               <Box display="flex" alignItems="center" gap={2.5}>
                 <IconButton 
                   onClick={() => {
@@ -1733,7 +1734,7 @@ useEffect(() => {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 border: `1px solid ${alpha(COLORS.primary.main, 0.2)}`,
-              }}>
+              }} className="dark:bg-gray-900/70 dark:border-indigo-700">
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="caption" sx={{ 
                     mb: 0.5, 
@@ -1771,7 +1772,7 @@ useEffect(() => {
                 p: 2.5, 
                 mb: 2,
                 border: `1px solid ${alpha(COLORS.primary.main, 0.2)}`,
-              }}>
+              }} className="dark:bg-gray-900/70 dark:border-indigo-700">
                 <Typography variant="caption" sx={{ 
                   mb: 1.5, 
                   display: 'block',
@@ -2206,7 +2207,7 @@ useEffect(() => {
               p: 2.5, 
               mt: 2,
               border: '1px solid rgba(255, 255, 255, 0.1)',
-            }}>
+            }} className="dark:bg-gray-900/70 dark:border-gray-700/10">
             {showEmojiPicker && (
   <Box 
     ref={emojiPickerRef}
@@ -2225,7 +2226,7 @@ useEffect(() => {
         setShowEmojiPicker(false);
         if (inputRef.current) inputRef.current.focus();
       }}
-      theme="dark"
+      theme="light"
       previewPosition="none"
       skinTonePosition="none"
       searchPosition="none"
