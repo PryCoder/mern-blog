@@ -174,7 +174,8 @@ export default function Header() {
       <div className="hidden lg:inline">
         <Link to="/" className="dark:text-white text-black mr-6">Home</Link>
         <Link to="/about" className="dark:text-white text-black mr-6">About</Link>
-        <Link to="/projects" className="dark:text-white text-black">Projects</Link>
+        <Link to="/projects" className="dark:text-white text-black mr-6 ">Projects</Link>
+        <Link to="/direct/inbox" className="dark:text-white text-black">Chat</Link>
       </div>
 
       <Button
@@ -234,6 +235,7 @@ export default function Header() {
             <Link to="/" className="block px-4 py-2 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-900">Home</Link>
             <Link to="/about" className="block px-4 py-2 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-900">About</Link>
             <Link to="/projects" className="block px-4 py-2 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-900">Projects</Link>
+            <Link to="/direct/inbox" className="block px-4 py-2 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-900">Chat</Link>
           </div>
         )}
       </div>
