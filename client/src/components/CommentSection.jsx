@@ -22,7 +22,7 @@ export default function CommentSection({postId}) {
       return;
     }
     try {
-      const res = await fetch('http://localhost:3000/api/comment/create', {
+      const res = await fetch('/api/comment/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
