@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { 
     Card, 
     Badge, 
@@ -19,6 +20,7 @@ import {
 } from 'react-icons/hi';
 
 export default function StoryManagementPage() {
+    const { currentUser } = useSelector((state) => state.user);
     const [userStories, setUserStories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -38,11 +40,27 @@ export default function StoryManagementPage() {
         fetchStoriesCount();
     }, []);
 
+    const getCurrentUserId = () => {
+        if (currentUser?._id) return currentUser._id;
+        try {
+            const raw = localStorage.getItem('user');
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed?._id || null;
+        } catch {
+            return null;
+        }
+    };
+
     const fetchUserStories = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
-            const userId = localStorage.getItem('userId');
+            const userId = getCurrentUserId();
+            if (!userId) {
+                setUserStories([]);
+                setStats({ totalStories: 0, activeStories: 0, totalViews: 0 });
+                return;
+            }
             
             // Using getFollowingStories API but filtering for current user
             const response = await fetch('/api/stories/following', {
@@ -86,7 +104,8 @@ export default function StoryManagementPage() {
     const fetchStoriesCount = async () => {
         try {
             const token = localStorage.getItem('token');
-            const userId = localStorage.getItem('userId');
+            const userId = getCurrentUserId();
+            if (!userId) return;
             const response = await fetch(`/api/stories/user/${userId}/count`, {
                 headers: {
                     'Authorization': `Bearer ${token}`

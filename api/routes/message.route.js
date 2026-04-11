@@ -10,7 +10,10 @@ import {
   getFollowingForMessaging,
   addReaction,
   editMessage,
-  getMessageReactions
+  getMessageReactions,
+  createGroupConversation,
+  getConversationMessages,
+  markConversationRead
 } from '../controllers/message.controller.js';
 import { verifyToken } from '../utils/verifyUser.js';
 
@@ -22,8 +25,14 @@ router.post('/send', verifyToken, sendMessage);
 // Get conversations
 router.get('/conversations', verifyToken, getConversations);
 
-// Get messages with a user
-router.get('/:userId', verifyToken, getMessages);
+// Create group conversation
+router.post('/conversations/group', verifyToken, createGroupConversation);
+
+// Get messages for a conversation (group or 1:1)
+router.get('/conversations/:conversationId/messages', verifyToken, getConversationMessages);
+
+// Mark conversation read
+router.put('/conversations/:conversationId/mark-read', verifyToken, markConversationRead);
 
 // Mark messages as read
 router.put('/mark-read', verifyToken, markAsRead);
@@ -41,12 +50,18 @@ router.post('/online-status', verifyToken, getOnlineStatus);
 router.get('/following/messaging', verifyToken, getFollowingForMessaging);
 
 // Add/remove reaction to message
-router.post('/:messageId/reactions', verifyToken, addReaction);
+router.post('/message/:messageId/reactions', verifyToken, addReaction);
 
 // Edit message
-router.put('/:messageId', verifyToken, editMessage);
+router.put('/message/:messageId', verifyToken, editMessage);
 
 // Get message reactions
-router.get('/:messageId/reactions', verifyToken, getMessageReactions);
+router.get('/message/:messageId/reactions', verifyToken, getMessageReactions);
+
+// Delete a message
+router.delete('/message/:messageId', verifyToken, deleteMessage);
+
+// Get messages with a user (1:1)
+router.get('/user/:userId', verifyToken, getMessages);
 
 export default router;

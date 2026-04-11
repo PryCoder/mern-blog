@@ -1,13 +1,12 @@
-import { getDownloadURL, getStorage, ref, uploadBytesResumable } from 'firebase/storage';
 import { Alert, Button, FileInput, Select, TextInput } from 'flowbite-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { app } from '../firebase';
 import { CircularProgressbar } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 export default function UpdatePost() {
     const [file, setFile] = useState(null);
@@ -17,6 +16,7 @@ export default function UpdatePost() {
     const [publishError, setPublishError] = useState(null);
     const {postId} = useParams();
     const navigate = useNavigate();
+    const uploadInProgressRef = useRef(false);
 
     const { currentUser } = useSelector((state) => state.user);
 
@@ -44,38 +44,35 @@ export default function UpdatePost() {
 
     const handleUploadImage = async () => {
         try {
+            // ✅ Prevent concurrent uploads
+            if (uploadInProgressRef.current) {
+                console.warn('Upload already in progress');
+                return;
+            }
+
             if (!file) {
                 setImageFileUploadError('Please select an image');
                 return;
             }
+            
             setImageFileUploadError(null);
-            const storage = getStorage(app);
-            const fileName = new Date().getTime() + '-' + file.name;
-            const storageRef = ref(storage, fileName);
-            const uploadTask = uploadBytesResumable(storageRef, file);
+            uploadInProgressRef.current = true;
 
-            uploadTask.on(
-                'state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setImageFileUploadProgress(progress.toFixed(0));
-                },
-                (error) => {
-                    setImageFileUploadError('Image upload failed');
-                    setImageFileUploadProgress(null);
-                },
-                () => {
-                    getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                        setImageFileUploadProgress(null);
-                        setImageFileUploadError(null);
-                        setFormData({ ...formData, image: downloadURL });
-                    });
-                }
-            );
-        } catch (error) {
-            setImageFileUploadError('Image upload failed');
+            // Upload to Cloudinary
+            const downloadURL = await uploadToCloudinary(file, (progress) => {
+                setImageFileUploadProgress(progress);
+            });
+
             setImageFileUploadProgress(null);
-            console.log(error);
+            setImageFileUploadError(null);
+            setFormData({ ...formData, image: downloadURL });
+            setFile(null);
+            uploadInProgressRef.current = false;
+        } catch (error) {
+            console.error('Upload failed:', error);
+            setImageFileUploadError('Image upload failed. Check Cloudinary credentials.');
+            setImageFileUploadProgress(null);
+            uploadInProgressRef.current = false;
         }
     };
 

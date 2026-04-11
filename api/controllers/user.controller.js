@@ -1,6 +1,8 @@
 import bcryptjs from 'bcryptjs';
 import User from "../models/user.model.js";
 import { errorHandler } from "../utils/error.js";
+import Notification from '../models/notification.model.js';
+import { emitToUser } from '../utils/socketEmit.js';
 
 // Test API endpoint
 export const test = (req, res) => {
@@ -154,7 +156,40 @@ export const getUser = async (req, res, next) => {
     next(error);
   }
 };
+export const toggleAdmin = async (req, res, next) => {
+  try {
+    // Check if the requesting user is an admin
+    if (!req.user.isAdmin) {
+      return next(errorHandler(403, 'You are not allowed to change admin status'));
+    }
 
+    // Prevent users from changing their own admin status
+    if (req.params.userId === req.user.id) {
+      return next(errorHandler(400, 'You cannot change your own admin status'));
+    }
+
+    const { isAdmin } = req.body;
+    
+    // Validate that isAdmin is a boolean
+    if (typeof isAdmin !== 'boolean') {
+      return next(errorHandler(400, 'Invalid admin status value'));
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.userId,
+      { isAdmin },
+      { new: true }
+    ).select('-password'); // Exclude password from response
+
+    if (!updatedUser) {
+      return next(errorHandler(404, 'User not found'));
+    }
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    next(error);
+  }
+};
 
   // In your backend controller (e.g., user.controller.js)
 export const searchUsers = async (req, res) => {
@@ -180,8 +215,8 @@ export const followUser = async (req, res) => {
   }
 
   try {
-    const userToFollow = await User.findById(userId);
-    const currentUser = await User.findById(currentUserId);
+    const userToFollow = await User.findById(userId).select('_id');
+    const currentUser = await User.findById(currentUserId).select('_id username following');
 
     if (!userToFollow || !currentUser) {
       return res.status(404).json({ message: 'User not found' });
@@ -190,14 +225,35 @@ export const followUser = async (req, res) => {
     // if (currentUser.following.includes(userId)) {
     //   return res.status(400).json({ message: 'Already following this user' });
     // }
-    if (currentUser.following.includes(userId)) {
+    const userIdStr = userId?.toString();
+    if (!userIdStr) {
+      return res.status(400).json({ message: 'Invalid userId' });
+    }
+
+    if (Array.isArray(currentUser.following) && currentUser.following.some((id) => id.toString() === userIdStr)) {
       return res.status(400).json({ message: 'Already following this user' });
     }
-    userToFollow.followers.push(currentUserId);
-    currentUser.following.push(userId);
 
-    await userToFollow.save();
-    await currentUser.save();
+    await Promise.all([
+      User.findByIdAndUpdate(userToFollow._id, { $addToSet: { followers: currentUserId } }),
+      User.findByIdAndUpdate(currentUser._id, { $addToSet: { following: userToFollow._id } }),
+    ]);
+
+    const notification = await Notification.create({
+      userId: userToFollow._id,
+      actorId: currentUser._id,
+      type: 'follow',
+      title: 'New follower',
+      body: `${currentUser.username} started following you`,
+      data: {
+        actorUserId: currentUser._id.toString(),
+      },
+    });
+
+    emitToUser(userToFollow._id.toString(), 'notificationCreated', {
+      notification,
+      timestamp: new Date(),
+    });
 
     res.status(200).json({ message: 'Followed successfully' });
   } catch (error) {
@@ -215,22 +271,26 @@ export const unfollowUser = async (req, res) => {
   }
 
   try {
-    const userToUnfollow = await User.findById(userId);
-    const currentUser = await User.findById(currentUserId);
+    const userToUnfollow = await User.findById(userId).select('_id');
+    const currentUser = await User.findById(currentUserId).select('_id following');
 
     if (!userToUnfollow || !currentUser) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (!currentUser.following.includes(userId)) {
+    const userIdStr = userId?.toString();
+    if (!userIdStr) {
+      return res.status(400).json({ message: 'Invalid userId' });
+    }
+
+    if (!Array.isArray(currentUser.following) || !currentUser.following.some((id) => id.toString() === userIdStr)) {
       return res.status(400).json({ message: 'Not following this user' });
     }
 
-    userToUnfollow.followers = userToUnfollow.followers.filter(id => id.toString() !== currentUserId.toString());
-    currentUser.following = currentUser.following.filter(id => id.toString() !== userId.toString());
-
-    await userToUnfollow.save();
-    await currentUser.save();
+    await Promise.all([
+      User.findByIdAndUpdate(userToUnfollow._id, { $pull: { followers: currentUserId } }),
+      User.findByIdAndUpdate(currentUser._id, { $pull: { following: userToUnfollow._id } }),
+    ]);
 
     res.status(200).json({ message: 'Unfollowed successfully' });
   } catch (error) {

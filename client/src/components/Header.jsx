@@ -3,9 +3,11 @@ import { Avatar, Button, Dropdown, Navbar, TextInput } from "flowbite-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AiOutlineMenu, AiOutlineSearch } from 'react-icons/ai';
 import { FaMoon, FaSun } from 'react-icons/fa';
+import { IoNotificationsOutline } from 'react-icons/io5';
 import { useSelector, useDispatch } from 'react-redux';
 import { toggleTheme } from '../redux/theme/themeSlice';
 import { signoutSuccess } from '../redux/user/userSlice';
+import socketService from '../utils/socket';
 
 export default function Header() {
   const path = useLocation().pathname;
@@ -19,10 +21,50 @@ export default function Header() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);  // New state for mobile search
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     // Optional: Add side effects here if needed
   }, [currentUser, theme]);
+
+  const fetchUnreadNotifications = async () => {
+    if (!currentUser) {
+      setUnreadNotifications(0);
+      return;
+    }
+    try {
+      const res = await fetch('/api/notifications/unread-count', {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUnreadNotifications(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.log('Unread notifications fetch error:', error.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadNotifications();
+
+    // Realtime updates (when socket is connected)
+    const onNotification = () => {
+      setUnreadNotifications((prev) => prev + 1);
+    };
+
+    socketService.on('notificationCreated', onNotification);
+
+    // Lightweight polling fallback
+    const interval = setInterval(() => {
+      fetchUnreadNotifications();
+    }, 30000);
+
+    return () => {
+      socketService.off('notificationCreated', onNotification);
+      clearInterval(interval);
+    };
+  }, [currentUser]);
 
   const handleSignout = async () => {
     try {
@@ -188,6 +230,21 @@ export default function Header() {
           {theme === 'light' ? <FaSun className="text-xl text-orange-500" /> : <FaMoon className="text-xl dark:text-white" />}
         </div>
       </Button>
+
+      {currentUser ? (
+        <button
+          onClick={() => navigate('/notifications')}
+          className="relative w-12 h-10 hidden sm:flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 ml-2"
+          aria-label="Notifications"
+        >
+          <IoNotificationsOutline className="text-2xl text-black dark:text-white" />
+          {unreadNotifications > 0 ? (
+            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-semibold rounded-full px-2 py-0.5">
+              {unreadNotifications > 99 ? '99+' : unreadNotifications}
+            </span>
+          ) : null}
+        </button>
+      ) : null}
 
       {currentUser ? (
         <Dropdown

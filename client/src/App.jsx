@@ -19,14 +19,14 @@ import StoriesFeedPage from './components/StoriesFeed';
 import StoryManagementPage from './components/StoryManagement';
 import HighlightsPage from './components/HighlightPage';
 import MessagingPage from './components/MessagingPage';
-
-
-
+import DashReportedComments from './components/DashReportedComments';
+import FollowingFeed from './pages/FollowingFeed';
+import Notifications from './pages/Notifications';
 
 export default function App() {
   return (
     <BrowserRouter>
-    <ScrollToTop/>
+      <ScrollToTop/>
       <Header />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -50,7 +50,8 @@ export default function App() {
         {/* Private routes accessible only when authenticated */}
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
-      
+          <Route path="/following-feed" element={<FollowingFeed />} />
+          <Route path="/notifications" element={<Notifications />} />
         </Route>
 
 
@@ -59,6 +60,7 @@ export default function App() {
         <Route element={<OnlyAdminPrivateRoute />}>
           
           <Route path="/update-post/:postId" element={<UpdatePost />} />
+          <Route path="/reported-comments" element={<DashReportedComments />} />
         </Route>
 
         {/* Default route or 404 page */}

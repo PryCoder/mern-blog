@@ -109,6 +109,15 @@ export default function DashSidebar() {
                   Comments
                 </Sidebar.Item>
               </Link>
+              <Link to="/dashboard?tab=reported-comments">
+                <Sidebar.Item
+                  active={tab === 'reported-comments'}
+                  icon={HiAnnotation}
+                  as="div"
+                >
+                  Reported Comments
+                </Sidebar.Item>
+              </Link>
             </>
           )}
 

@@ -45,6 +45,7 @@ export default function InstagramStories() {
     const storyTimerRef = useRef(null);
     const navigate = useNavigate();
     const { storyId } = useParams();
+    const deepLinkOpenedRef = useRef(false);
 
     // Instagram-like gradient colors for story rings
     const gradientColors = [
@@ -60,6 +61,24 @@ export default function InstagramStories() {
     useEffect(() => {
         fetchFollowingStories();
     }, []);
+
+    // If we land on /stories/:storyId, open the viewer at that story once stories are loaded.
+    useEffect(() => {
+        if (!storyId) return;
+        if (loading) return;
+        if (!Array.isArray(stories) || stories.length === 0) return;
+        if (deepLinkOpenedRef.current) return;
+
+        for (let userIndex = 0; userIndex < stories.length; userIndex++) {
+            const group = stories[userIndex];
+            const storyIndex = group?.stories?.findIndex((s) => s?._id === storyId);
+            if (typeof storyIndex === 'number' && storyIndex >= 0) {
+                deepLinkOpenedRef.current = true;
+                openStoryViewer(userIndex, storyIndex);
+                break;
+            }
+        }
+    }, [storyId, loading, stories]);
 
     const fetchFollowingStories = async () => {
         try {

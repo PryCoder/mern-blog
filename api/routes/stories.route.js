@@ -10,13 +10,15 @@ import {
     archiveStory,
     getUserHighlights,
     getStoryViewers,
-    getStoriesCount
+    getStoriesCount,
+    createHighlightAlbum
 } from '../controllers/stories.controller.js';
 import { verifyToken } from '../utils/verifyUser.js';
 
 const router = express.Router();
 
 router.post('/create', verifyToken, createStory);
+router.post('/create-highlight-album', verifyToken, createHighlightAlbum);
 router.get('/following', verifyToken, getFollowingStories);
 router.get('/:storyId', verifyToken, getStory);
 router.post('/:storyId/view', verifyToken, viewStory);

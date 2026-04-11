@@ -11,6 +11,7 @@ import postRoutes from './routes/post.route.js';
 import storiesRoutes from './routes/stories.route.js';
 import commentRoutes from './routes/comment.route.js';
 import messageRoutes from './routes/message.route.js';
+import notificationRoutes from './routes/notification.route.js';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import cors from 'cors';
@@ -316,6 +317,7 @@ app.use('/api/post', postRoutes);
 app.use('/api/comment', commentRoutes);
 app.use('/api/stories', storiesRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Online status endpoint
 app.post('/api/online-status', (req, res) => {

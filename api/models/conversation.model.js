@@ -5,6 +5,24 @@ const conversationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  isGroup: {
+    type: Boolean,
+    default: false,
+  },
+  name: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  admins: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  }],
   lastMessage: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Message'

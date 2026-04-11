@@ -1,5 +1,8 @@
 import Post from '../models/post.model.js';
+import User from '../models/user.model.js';
 import { errorHandler } from '../utils/error.js';
+import { clearResourceCache } from '../middleware/redisCache.js';
+
 export const create = async (req, res, next) => {
   // Check if user is authenticated
   // if (!user) {
@@ -28,6 +31,7 @@ export const create = async (req, res, next) => {
 
   try {
     const savedPost = await newPost.save();
+    await clearResourceCache('/api/post'); // Invalidate cache
     res.status(201).json(savedPost);
   } catch (error) {
     next(error);
@@ -84,6 +88,7 @@ export const deletepost = async (req, res, next) => {
      }
      try {
      await Post.findByIdAndDelete(req.params.postId);
+      await clearResourceCache('/api/post'); // Invalidate cache
       res.status(200).json("The post has been deleted");
       }catch(error) {
       next(error);
@@ -105,6 +110,8 @@ export const deletepost = async (req, res, next) => {
         category: req.body.category,
         image: req.body.image,
         }}, {new: true});
+         
+         await clearResourceCache('/api/post'); // Invalidate cache
          res.status(200).json(updatePost);
          }catch(error) {
          next(error);
@@ -130,7 +137,31 @@ export const likePost = async (req, res, next) => {
     }
 
     await post.save();
+    await clearResourceCache('/api/post'); // Invalidate cache
     res.status(200).json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getFollowingFeed = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return next(errorHandler(404, 'User not found'));
+
+    const startIndex = parseInt(req.query.startIndex) || 0;
+    const limit = parseInt(req.query.limit) || 9;
+
+    // Find posts only from users the logged-in user follows
+    const posts = await Post.find({
+      userId: { $in: user.following },
+    })
+      .sort({ createdAt: -1 })
+      .skip(startIndex)
+      .limit(limit)
+      .populate('userId', 'username profilePicture');
+
+    res.status(200).json({ posts });
   } catch (error) {
     next(error);
   }

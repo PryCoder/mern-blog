@@ -72,27 +72,7 @@ import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import socketService from '../utils/socket';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
-
-// Firebase imports
-import { initializeApp } from 'firebase/app';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { CircularProgressbar } from 'react-circular-progressbar';
-import 'react-circular-progressbar/dist/styles.css';
-import {app} from '../firebase'
-
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
-
-// Initialize Firebase
-
-const storage = getStorage(app);
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 // Modern Color Scheme (default light mode)
 const COLORS = {
@@ -313,7 +293,12 @@ const MessagesPage = () => {
   const [loading, setLoading] = useState(true);
   const [messageLoading, setMessageLoading] = useState(false);
   const [followingUsers, setFollowingUsers] = useState([]);
+  const [searchedUsers, setSearchedUsers] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
   const [showNewMessageDrawer, setShowNewMessageDrawer] = useState(false);
+  const [newMessageMode, setNewMessageMode] = useState('dm'); // 'dm' | 'group'
+  const [groupName, setGroupName] = useState('');
+  const [groupMemberIds, setGroupMemberIds] = useState([]);
   const [onlineStatus, setOnlineStatus] = useState({});
   const [typingUsers, setTypingUsers] = useState({});
   const [unreadCount, setUnreadCount] = useState(0);
@@ -424,7 +409,20 @@ const MessagesPage = () => {
     if (!conversation || !conversation.participants || !Array.isArray(conversation.participants)) return null;
     const userId = getCurrentUserId();
     if (!userId) return null;
-    return conversation.participants.find(p => p._id !== userId);
+
+    const userIdStr = userId.toString();
+    return (
+      conversation.participants.find((p) => {
+        const pid = typeof p === 'string' ? p : p?._id;
+        return pid && pid.toString() !== userIdStr;
+      }) || null
+    );
+  };
+
+  const getConversationTitle = (conversation) => {
+    if (!conversation) return '';
+    if (conversation.isGroup) return conversation.name || 'Group';
+    return getOtherUser(conversation)?.username || 'Conversation';
   };
 
   const getUnreadCountForConversation = (conversation) => {
@@ -611,13 +609,14 @@ const MessagesPage = () => {
     const userId = getCurrentUserId();
     const token = getToken();
     
-    if (!userId || !token) return;
+    if (!userId) return;
     
     try {
       if (mountedRef.current) setLoading(true);
       const response = await axios.get(`/api/messages/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         withCredentials: true,
+        timeout: 20000,
       });
       
       if (mountedRef.current) {
@@ -626,10 +625,9 @@ const MessagesPage = () => {
       
       const allUserIds = [];
       response.data?.forEach(conv => {
+        if (conv?.isGroup) return;
         const otherUser = getOtherUser(conv);
-        if (otherUser?._id) {
-          allUserIds.push(otherUser._id);
-        }
+        if (otherUser?._id) allUserIds.push(otherUser._id);
       });
       
       if (allUserIds.length > 0) {
@@ -638,7 +636,11 @@ const MessagesPage = () => {
     } catch (error) {
       console.error('Error fetching conversations:', error);
       if (mountedRef.current) {
-        showSnackbar('Failed to load conversations', 'error');
+        if (error?.code === 'ECONNABORTED') {
+          showSnackbar('Request timed out (server/database not responding)', 'error');
+        } else {
+          showSnackbar('Failed to load conversations', 'error');
+        }
       }
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -649,13 +651,15 @@ const MessagesPage = () => {
     const currentUserId = getCurrentUserId();
     const token = getToken();
     
-    if (!currentUserId || !token || !userId) return;
+    if (!currentUserId || !userId) return;
     
     try {
       if (mountedRef.current) setMessageLoading(true);
-      const response = await axios.get(`/api/messages/${userId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      // 1:1 legacy endpoint (user-to-user)
+      const response = await axios.get(`/api/messages/user/${userId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         withCredentials: true,
+        timeout: 20000,
       });
       
       if (mountedRef.current) {
@@ -665,21 +669,99 @@ const MessagesPage = () => {
     } catch (error) {
       console.error('Error fetching messages:', error);
       if (mountedRef.current) {
-        showSnackbar('Failed to load messages', 'error');
+        if (error?.code === 'ECONNABORTED') {
+          showSnackbar('Request timed out (server/database not responding)', 'error');
+        } else {
+          showSnackbar('Failed to load messages', 'error');
+        }
       }
     } finally {
       if (mountedRef.current) setMessageLoading(false);
     }
   }, [showSnackbar]);
 
+  const fetchConversationMessages = useCallback(async (conversationId) => {
+    const token = getToken();
+    if (!conversationId) return;
+
+    try {
+      if (mountedRef.current) setMessageLoading(true);
+      const response = await axios.get(`/api/messages/conversations/${conversationId}/messages`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+        timeout: 20000,
+      });
+
+      if (mountedRef.current) {
+        setMessages(response.data || []);
+        setTimeout(() => scrollToBottom(), 300);
+      }
+    } catch (error) {
+      console.error('Error fetching conversation messages:', error);
+      if (mountedRef.current) {
+        if (error?.code === 'ECONNABORTED') {
+          showSnackbar('Request timed out (server/database not responding)', 'error');
+        } else {
+          showSnackbar('Failed to load messages', 'error');
+        }
+      }
+    } finally {
+      if (mountedRef.current) setMessageLoading(false);
+    }
+  }, [showSnackbar]);
+
+  const createGroupConversation = useCallback(async () => {
+    const token = getToken();
+
+    const name = groupName.trim();
+    if (!name) {
+      showSnackbar('Group name is required', 'warning');
+      return;
+    }
+    if (groupMemberIds.length < 2) {
+      showSnackbar('Select at least 2 members', 'warning');
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `/api/messages/conversations/group`,
+        { name, participantIds: groupMemberIds },
+        { headers: token ? { Authorization: `Bearer ${token}` } : {}, withCredentials: true, timeout: 20000 }
+      );
+
+      const created = response.data?.conversation;
+      if (!created?._id) {
+        showSnackbar('Failed to create group', 'error');
+        return;
+      }
+
+      if (mountedRef.current) {
+        setConversations((prev) => [created, ...(prev || [])]);
+        setShowNewMessageDrawer(false);
+        setSearchQuery('');
+        setNewMessageMode('dm');
+        setGroupName('');
+        setGroupMemberIds([]);
+      }
+
+      handleSelectConversation(created);
+      showSnackbar('Group created', 'success');
+    } catch (error) {
+      console.error('Error creating group conversation:', error);
+      const msg = error.response?.data?.message || 'Failed to create group';
+      showSnackbar(msg, 'error');
+    }
+  }, [groupName, groupMemberIds, showSnackbar]);
+
   const fetchFollowingUsers = useCallback(async () => {
     const token = getToken();
-    if (!token) return;
     
     try {
       const response = await axios.get(`/api/messages/following/messaging`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         withCredentials: true,
+        timeout: 20000,
       });
       
       if (mountedRef.current) {
@@ -690,14 +772,63 @@ const MessagesPage = () => {
     }
   }, []);
 
+  const searchAllUsers = useCallback(async (query) => {
+    const token = getToken();
+    const q = (query || '').trim();
+    if (!q) {
+      if (mountedRef.current) setSearchedUsers([]);
+      return;
+    }
+
+    try {
+      if (mountedRef.current) setUserSearchLoading(true);
+      const response = await axios.get(`/api/user/search?query=${encodeURIComponent(q)}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          withCredentials: true,
+          timeout: 20000,
+        }
+      );
+
+      const list = response.data?.users || response.data?.users?.users || response.data?.users || [];
+      const myId = getCurrentUserId();
+      const myIdStr = myId ? myId.toString() : null;
+
+      const normalized = Array.isArray(list) ? list : [];
+      const filtered = myIdStr ? normalized.filter((u) => u?._id?.toString() !== myIdStr) : normalized;
+
+      if (mountedRef.current) setSearchedUsers(filtered);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      if (mountedRef.current) setSearchedUsers([]);
+    } finally {
+      if (mountedRef.current) setUserSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showNewMessageDrawer) return;
+    const q = (searchQuery || '').trim();
+    if (!q) {
+      setSearchedUsers([]);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      searchAllUsers(q);
+    }, 350);
+
+    return () => clearTimeout(t);
+  }, [searchQuery, showNewMessageDrawer, searchAllUsers]);
+
   const fetchUnreadCount = useCallback(async () => {
     const token = getToken();
-    if (!token) return;
     
     try {
       const response = await axios.get(`/api/messages/unread/count`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         withCredentials: true,
+        timeout: 20000,
       });
       
       if (mountedRef.current) {
@@ -710,14 +841,15 @@ const MessagesPage = () => {
 
   const fetchOnlineStatus = useCallback(async (userIds) => {
     const token = getToken();
-    if (!token || !userIds || userIds.length === 0) return;
+    if (!userIds || userIds.length === 0) return;
     
     try {
       const response = await axios.post(`/api/messages/online-status`, 
         { userIds },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           withCredentials: true,
+          timeout: 20000,
         }
       );
       
@@ -736,41 +868,20 @@ const MessagesPage = () => {
     }
   }, []);
 
-  // Firebase Upload Function (keeping existing)
-  const uploadToFirebase = async (file) => {
-    const token = getToken();
-    if (!token || !file) return null;
+  // Cloudinary Upload Function
+  const uploadFileToCloudinary = async (file) => {
+    if (!file) return null;
 
     try {
-      const storageRef = ref(storage, `messages/${Date.now()}_${file.name.replace(/\s+/g, '_')}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      return new Promise((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(prev => ({
-              ...prev,
-              [file.name]: progress
-            }));
-          },
-          (error) => {
-            console.error('Upload error:', error);
-            reject(error);
-          },
-          async () => {
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadURL);
-            } catch (error) {
-              reject(error);
-            }
-          }
-        );
+      const downloadURL = await uploadToCloudinary(file, (progress) => {
+        setUploadProgress(prev => ({
+          ...prev,
+          [file.name]: progress
+        }));
       });
+      return downloadURL;
     } catch (error) {
-      console.error('Error uploading to Firebase:', error);
+      console.error('Error uploading to Cloudinary:', error);
       throw error;
     }
   };
@@ -810,7 +921,13 @@ const MessagesPage = () => {
 
   const handleUploadFiles = async (files) => {
     const token = getToken();
-    if (!token || !selectedUser || files.length === 0) return;
+    if (!selectedConversation || files.length === 0) return;
+
+    // If we're not sending to a group conversation, we must have a selected user (DM).
+    if (!selectedConversation?.isGroup && !selectedUser?._id) {
+      showSnackbar('Select a user to message', 'warning');
+      return;
+    }
 
     setIsSending(true);
     setUploadingFiles(files.map(f => f.name));
@@ -818,26 +935,40 @@ const MessagesPage = () => {
     try {
       const uploadPromises = files.map(async (file) => {
         try {
-          const downloadURL = await uploadToFirebase(file);
+          const downloadURL = await uploadFileToCloudinary(file);
           
           let messageType = 'file';
           if (file.type.startsWith('image/')) messageType = 'image';
           if (file.type.startsWith('video/')) messageType = 'video';
           if (file.type === 'application/pdf') messageType = 'pdf';
           
-          const response = await axios.post(`/api/messages/send`, 
+          const payload = selectedConversation?.isGroup
+            ? {
+                conversationId: selectedConversation._id,
+                content: newMessage.trim() || '',
+                imageUrl: downloadURL,
+                messageType,
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                replyTo: replyTo?._id,
+              }
+            : {
+                receiverId: selectedUser?._id,
+                content: newMessage.trim() || '',
+                imageUrl: downloadURL,
+                messageType,
+                fileName: file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                replyTo: replyTo?._id,
+              };
+
+          const response = await axios.post(`/api/messages/send`, payload,
             {
-              receiverId: selectedUser._id,
-              content: newMessage.trim() || '',
-              imageUrl: downloadURL,
-              messageType: messageType,
-              fileName: file.name,
-              fileSize: file.size,
-              replyTo: replyTo?._id
-            },
-            {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
               withCredentials: true,
+              timeout: 20000,
             }
           );
 
@@ -885,7 +1016,16 @@ const MessagesPage = () => {
       
     } catch (error) {
       console.error('Error sending files:', error);
-      showSnackbar('Failed to send files', 'error');
+      const serverMsg = error?.response?.data?.message;
+      if (serverMsg) {
+        showSnackbar(serverMsg, 'error');
+      } else if (error?.code === 'ECONNABORTED') {
+        showSnackbar('Send timed out (server/database not responding)', 'error');
+      } else if (error?.response?.status === 401) {
+        showSnackbar('Unauthorized: please sign in again', 'error');
+      } else {
+        showSnackbar('Failed to send files', 'error');
+      }
     } finally {
       setIsSending(false);
       setUploadingFiles([]);
@@ -901,10 +1041,18 @@ const MessagesPage = () => {
     e.preventDefault();
     const token = getToken();
     
-    if ((!newMessage.trim() && selectedFiles.length === 0) || !selectedUser || !token || isSending) {
+    const canSendDM = !!selectedUser?._id;
+    const canSendGroup = !!selectedConversation?._id && selectedConversation?.isGroup;
+
+    if ((!newMessage.trim() && selectedFiles.length === 0) || (!canSendDM && !canSendGroup) || isSending) {
       if (!newMessage.trim() && selectedFiles.length === 0) {
         showSnackbar('Cannot send empty message', 'warning');
       }
+      return;
+    }
+
+    if (!selectedConversation?.isGroup && !selectedUser?._id) {
+      showSnackbar('Select a user to message', 'warning');
       return;
     }
 
@@ -916,15 +1064,23 @@ const MessagesPage = () => {
       if (selectedFiles.length > 0) {
         await handleUploadFiles(selectedFiles);
       } else {
-        response = await axios.post(`/api/messages/send`, 
+        const payload = selectedConversation?.isGroup
+          ? {
+              conversationId: selectedConversation._id,
+              content: newMessage.trim(),
+              replyTo: replyTo?._id,
+            }
+          : {
+              receiverId: selectedUser?._id,
+              content: newMessage.trim(),
+              replyTo: replyTo?._id,
+            };
+
+        response = await axios.post(`/api/messages/send`, payload,
           {
-            receiverId: selectedUser._id,
-            content: newMessage.trim(),
-            replyTo: replyTo?._id
-          },
-          {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
             withCredentials: true,
+            timeout: 20000,
           }
         );
 
@@ -953,13 +1109,32 @@ const MessagesPage = () => {
           scrollToBottom();
         }
 
+        // If this was a brand-new DM (no conversation selected), load conversations and select the newly created one
+        if (!selectedConversation?._id && response.data?.conversationId) {
+          try {
+            const convoRes = await axios.get(`/api/messages/conversations`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              withCredentials: true,
+              timeout: 20000,
+            });
+            const list = convoRes.data || [];
+            if (mountedRef.current) setConversations(list);
+            const created = list.find((c) => c?._id === response.data.conversationId);
+            if (created) {
+              handleSelectConversation(created);
+            }
+          } catch (e) {
+            console.error('Error reloading conversations after first message:', e);
+          }
+        }
+
         setNewMessage('');
         setReplyTo(null);
       }
 
       if (inputRef.current) inputRef.current.focus();
       
-      if (selectedConversation && socketService.connected) {
+      if (selectedConversation && socketService.connected && !selectedConversation.isGroup && selectedUser?._id) {
         socketService.stopTyping(selectedConversation._id, selectedUser._id);
       }
       
@@ -973,8 +1148,15 @@ const MessagesPage = () => {
       
     } catch (error) {
       console.error('Error sending message:', error);
-      if (error.response?.status === 403) {
+      const serverMsg = error?.response?.data?.message;
+      if (serverMsg) {
+        showSnackbar(serverMsg, 'error');
+      } else if (error?.code === 'ECONNABORTED') {
+        showSnackbar('Send timed out (server/database not responding)', 'error');
+      } else if (error.response?.status === 403) {
         showSnackbar('You can only message users you follow or who follow you', 'error');
+      } else if (error.response?.status === 401) {
+        showSnackbar('Unauthorized: please sign in again', 'error');
       } else {
         showSnackbar('Failed to send message', 'error');
       }
@@ -985,7 +1167,7 @@ const MessagesPage = () => {
     const value = e.target.value;
     setNewMessage(value);
     
-    if (selectedConversation && selectedUser && socketConnected && socketService.connected) {
+    if (selectedConversation && selectedUser && !selectedConversation.isGroup && socketConnected && socketService.connected) {
       socketService.startTyping(selectedConversation._id, selectedUser._id);
       
       if (typingTimeoutRef.current) {
@@ -1051,10 +1233,14 @@ const MessagesPage = () => {
 
   const handleSelectConversation = (conversation) => {
     const otherUser = getOtherUser(conversation);
-    if (!otherUser) return;
+    // For group chats there is no single "other user"
+    if (!conversation?.isGroup && !otherUser) {
+      showSnackbar('Unable to open this chat (missing participant info)', 'error');
+      return;
+    }
     
     setSelectedConversation(conversation);
-    setSelectedUser(otherUser);
+    setSelectedUser(conversation?.isGroup ? null : otherUser);
     setMessages([]);
     setTypingUsers({});
     setShowEmojiPicker(false);
@@ -1064,28 +1250,49 @@ const MessagesPage = () => {
     setMediaPreview({});
     
     navigate(`/direct/t/${conversation._id}`, { replace: true });
-    
-    fetchMessages(otherUser._id);
+
+    fetchConversationMessages(conversation._id);
     
     if (socketConnected && socketService.connected) {
       socketService.joinConversation(conversation._id);
     }
     
     if (getUnreadCountForConversation(conversation) > 0) {
-      markAsRead(otherUser._id, conversation._id);
+      if (conversation?.isGroup) {
+        markConversationAsRead(conversation._id);
+      } else {
+        markAsRead(otherUser._id, conversation._id);
+      }
+    }
+  };
+
+  const markConversationAsRead = async (conversationId) => {
+    const token = getToken();
+    if (!conversationId) return;
+
+    try {
+      await axios.put(
+        `/api/messages/conversations/${conversationId}/mark-read`,
+        {},
+        { headers: token ? { Authorization: `Bearer ${token}` } : {}, withCredentials: true, timeout: 20000 }
+      );
+      fetchUnreadCount();
+    } catch (error) {
+      console.error('Error marking conversation as read:', error);
     }
   };
 
   const markAsRead = async (senderId, conversationId) => {
     const token = getToken();
-    if (!token) return;
+    if (!senderId || !conversationId) return;
 
     try {
       await axios.put(`${API_BASE_URL}/messages/mark-read`,
         { senderId, conversationId },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           withCredentials: true,
+          timeout: 20000,
         }
       );
       
@@ -1273,7 +1480,7 @@ useEffect(() => {
 
       {/* Sidebar */}
       <GlassContainer sx={{
-        display: { xs: selectedUser ? 'none' : 'flex', md: 'flex' },
+        display: { xs: selectedConversation ? 'none' : 'flex', md: 'flex' },
         flexDirection: 'column',
         width: { xs: '100%', md: 380 },
         m: 2,
@@ -1433,10 +1640,11 @@ useEffect(() => {
           ) : (
             <List sx={{ p: 1 }}>
               {filteredConversations.map((conversation, index) => {
-                const otherUser = getOtherUser(conversation);
+                const otherUser = conversation?.isGroup ? null : getOtherUser(conversation);
                 const unreadCount = getUnreadCountForConversation(conversation);
-                const isOnline = onlineStatus[otherUser?._id]?.status === 'online';
+                const isOnline = otherUser?._id ? onlineStatus[otherUser._id]?.status === 'online' : false;
                 const isSelected = selectedConversation?._id === conversation._id;
+                const title = getConversationTitle(conversation);
 
                 return (
                   <Grow in={true} timeout={index * 100} key={conversation._id}>
@@ -1470,36 +1678,50 @@ useEffect(() => {
                       }}
                     >
                       <ListItemAvatar>
-                        <Badge
-                          overlap="circular"
-                          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                          variant="dot"
-                          sx={{
-                            '& .MuiBadge-dot': {
-                              backgroundColor: isOnline ? COLORS.secondary.main : COLORS.text.disabled,
-                              boxShadow: `0 0 8px ${isOnline ? COLORS.secondary.main : COLORS.text.disabled}`,
-                              width: 12,
-                              height: 12,
-                              border: `2px solid ${COLORS.background.paper}`,
-                            }
-                          }}
-                        >
+                        {conversation?.isGroup ? (
                           <Avatar
-                            src={otherUser?.profilePicture}
-                            alt={otherUser?.username}
                             sx={{
                               width: 52,
                               height: 52,
                               transition: 'all 0.3s ease',
                               border: `2px solid ${alpha(COLORS.primary.main, 0.3)}`,
-                              '&:hover': {
-                                transform: 'scale(1.1) rotate(5deg)',
+                              bgcolor: alpha(COLORS.primary.main, 0.25),
+                            }}
+                          >
+                            {(conversation?.name || 'G').charAt(0).toUpperCase()}
+                          </Avatar>
+                        ) : (
+                          <Badge
+                            overlap="circular"
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            variant="dot"
+                            sx={{
+                              '& .MuiBadge-dot': {
+                                backgroundColor: isOnline ? COLORS.secondary.main : COLORS.text.disabled,
+                                boxShadow: `0 0 8px ${isOnline ? COLORS.secondary.main : COLORS.text.disabled}`,
+                                width: 12,
+                                height: 12,
+                                border: `2px solid ${COLORS.background.paper}`,
                               }
                             }}
                           >
-                            {otherUser?.username?.charAt(0).toUpperCase()}
-                          </Avatar>
-                        </Badge>
+                            <Avatar
+                              src={otherUser?.profilePicture}
+                              alt={otherUser?.username}
+                              sx={{
+                                width: 52,
+                                height: 52,
+                                transition: 'all 0.3s ease',
+                                border: `2px solid ${alpha(COLORS.primary.main, 0.3)}`,
+                                '&:hover': {
+                                  transform: 'scale(1.1) rotate(5deg)',
+                                }
+                              }}
+                            >
+                              {otherUser?.username?.charAt(0).toUpperCase()}
+                            </Avatar>
+                          </Badge>
+                        )}
                       </ListItemAvatar>
                       <ListItemText
                         primary={
@@ -1513,7 +1735,7 @@ useEffect(() => {
                                 color: COLORS.text.primary,
                               }}
                             >
-                              {otherUser?.username}
+                              {title}
                             </Typography>
                             <Typography variant="caption" sx={{ 
                               color: COLORS.text.disabled,
@@ -1575,13 +1797,13 @@ useEffect(() => {
 
       {/* Main Chat Area */}
       <Box sx={{
-        display: { xs: selectedUser ? 'flex' : 'none', md: 'flex' },
+        display: { xs: selectedConversation ? 'flex' : 'none', md: 'flex' },
         flex: 1,
         flexDirection: 'column',
         m: 2,
         ml: { md: 1 },
       }}>
-        {selectedUser ? (
+        {selectedConversation ? (
           <>
             {/* Chat Header */}
             <GlassContainer sx={{ 
@@ -1616,10 +1838,10 @@ useEffect(() => {
                   variant="dot"
                   sx={{
                     '& .MuiBadge-dot': {
-                      backgroundColor: onlineStatus[selectedUser._id]?.status === 'online' 
+                      backgroundColor: onlineStatus[selectedUser?._id]?.status === 'online' 
                         ? COLORS.secondary.main 
                         : COLORS.text.disabled,
-                      boxShadow: `0 0 12px ${onlineStatus[selectedUser._id]?.status === 'online' 
+                      boxShadow: `0 0 12px ${onlineStatus[selectedUser?._id]?.status === 'online' 
                         ? COLORS.secondary.main 
                         : COLORS.text.disabled}`,
                       width: 14,
@@ -1629,8 +1851,8 @@ useEffect(() => {
                   }}
                 >
                   <Avatar
-                    src={selectedUser.profilePicture}
-                    alt={selectedUser.username}
+                    src={selectedConversation?.isGroup ? undefined : selectedUser?.profilePicture}
+                    alt={selectedConversation?.isGroup ? (selectedConversation?.name || 'Group') : selectedUser?.username}
                     sx={{ 
                       width: 52, 
                       height: 52,
@@ -1642,10 +1864,18 @@ useEffect(() => {
                         border: `2px solid ${COLORS.primary.main}`,
                       }
                     }}
-                    onClick={() => navigate(`/profile/${selectedUser._id}`)}
+                    onClick={() => {
+                      if (!selectedConversation?.isGroup && selectedUser?._id) {
+                        navigate(`/profile/${selectedUser._id}`);
+                      }
+                    }}
                     
                   >
-                    {selectedUser.username?.charAt(0).toUpperCase()}
+                    {(selectedConversation?.isGroup
+                      ? (selectedConversation?.name || 'G')
+                      : (selectedUser?.username || 'U'))
+                      .charAt(0)
+                      .toUpperCase()}
                   </Avatar>
                 </Badge>
                 <Box>
@@ -1661,33 +1891,39 @@ useEffect(() => {
                       },
                       transition: 'color 0.2s ease',
                     }}
-                    onClick={() => navigate(`/profile/${selectedUser._id}`)}
+                    onClick={() => {
+                      if (!selectedConversation?.isGroup && selectedUser?._id) {
+                        navigate(`/profile/${selectedUser._id}`);
+                      }
+                    }}
                   >
-                    {selectedUser.username}
+                    {selectedConversation?.isGroup
+                      ? (selectedConversation?.name || 'Group')
+                      : (selectedUser?.username || 'Chat')}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     fontFamily: FONT_FAMILIES.primary,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    color: onlineStatus[selectedUser._id]?.status === 'online' 
+                    color: onlineStatus[selectedUser?._id]?.status === 'online' 
                       ? COLORS.secondary.light 
                       : COLORS.text.disabled,
                   }}>
                     <CircleIcon sx={{ 
                       fontSize: 10, 
-                      color: onlineStatus[selectedUser._id]?.status === 'online' 
+                      color: onlineStatus[selectedUser?._id]?.status === 'online' 
                         ? COLORS.secondary.main 
                         : 'inherit',
-                      animation: onlineStatus[selectedUser._id]?.status === 'online' 
+                      animation: onlineStatus[selectedUser?._id]?.status === 'online' 
                         ? `${pulseGlow} 2s infinite`
                         : 'none',
                     }} />
-                    {onlineStatus[selectedUser._id]?.status === 'online' ? (
-                      'Active now'
-                    ) : (
-                      formatLastSeen(onlineStatus[selectedUser._id]?.lastSeen)
-                    )}
+                    {selectedConversation?.isGroup
+                      ? 'Group chat'
+                      : (onlineStatus[selectedUser?._id]?.status === 'online'
+                          ? 'Active now'
+                          : formatLastSeen(onlineStatus[selectedUser?._id]?.lastSeen))}
                   </Typography>
                 </Box>
               </Box>
@@ -1916,7 +2152,9 @@ useEffect(() => {
                         fontFamily: FONT_FAMILIES.primary,
                       }}
                     >
-                      Send your first message to begin chatting with {selectedUser.username}
+                      {selectedConversation?.isGroup
+                        ? `Send your first message to begin chatting in ${selectedConversation?.name || 'this group'}`
+                        : `Send your first message to begin chatting with ${selectedUser?.username || 'this user'}`}
                     </Typography>
                   </Box>
                 </Box>
@@ -2526,6 +2764,48 @@ useEffect(() => {
           </Box>
 
           <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <Button
+                variant={newMessageMode === 'dm' ? 'contained' : 'outlined'}
+                onClick={() => {
+                  setNewMessageMode('dm');
+                  setGroupName('');
+                  setGroupMemberIds([]);
+                }}
+                sx={{ textTransform: 'none', borderRadius: 3, flex: 1, fontFamily: FONT_FAMILIES.secondary }}
+              >
+                Direct
+              </Button>
+              <Button
+                variant={newMessageMode === 'group' ? 'contained' : 'outlined'}
+                onClick={() => setNewMessageMode('group')}
+                sx={{ textTransform: 'none', borderRadius: 3, flex: 1, fontFamily: FONT_FAMILIES.secondary }}
+              >
+                Group
+              </Button>
+            </Box>
+
+            {newMessageMode === 'group' && (
+              <TextField
+                fullWidth
+                placeholder="Group name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                InputProps={{
+                  sx: {
+                    borderRadius: 3,
+                    fontFamily: FONT_FAMILIES.primary,
+                    bgcolor: alpha(COLORS.background.surface, 0.3),
+                    color: COLORS.text.primary,
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+                  },
+                }}
+                size="small"
+                sx={{ mb: 2 }}
+              />
+            )}
+
             <TextField
               fullWidth
               placeholder="Search users..."
@@ -2556,97 +2836,152 @@ useEffect(() => {
           </Box>
 
           <Box sx={{ flex: 1, overflow: 'auto' }}>
-            {filteredFollowingUsers.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Typography variant="body1" sx={{ 
-                  color: COLORS.text.secondary,
-                  fontFamily: FONT_FAMILIES.primary,
-                }}>
-                  {searchQuery ? 'No users found' : 'Start following users to message them'}
-                </Typography>
-              </Box>
-            ) : (
-              <List>
-                {filteredFollowingUsers.map((user, index) => (
-                  <ListItem
-                    button
-                    key={user._id}
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setSelectedConversation(null);
-                      setMessages([]);
-                      setShowNewMessageDrawer(false);
-                      setTypingUsers({});
-                      
-                      const existingConv = conversations.find(conv => {
-                        const otherUser = getOtherUser(conv);
-                        return otherUser?._id === user._id;
-                      });
-                      
-                      if (existingConv) {
-                        handleSelectConversation(existingConv);
-                      } else {
-                        navigate('/direct/inbox');
-                        showSnackbar(`Start chatting with ${user.username}`, 'info');
-                      }
-                    }}
-                    sx={{ 
-                      py: 2,
-                      px: 2.5,
-                      transition: 'all 0.3s ease',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      '&:hover': {
-                        bgcolor: alpha(COLORS.primary.main, 0.1),
-                        transform: 'translateX(4px)',
-                      },
-                      '&:last-child': {
-                        borderBottom: 'none',
-                      }
-                    }}
-                  >
-                    <ListItemAvatar>
-                      <Avatar 
-                        src={user.profilePicture} 
-                        alt={user.username} 
-                        sx={{
-                          width: 48,
-                          height: 48,
-                          transition: 'transform 0.3s ease',
-                          border: `2px solid ${alpha(COLORS.primary.main, 0.3)}`,
-                          '&:hover': {
-                            transform: 'scale(1.1) rotate(5deg)',
-                          }
-                        }}
-                      >
-                        {user.username?.charAt(0).toUpperCase()}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1" sx={{ 
-                          fontWeight: 600, 
-                          fontFamily: FONT_FAMILIES.elegant,
-                          color: COLORS.text.primary,
-                        }}>
-                          {user.username}
-                        </Typography>
-                      }
-                      secondary={
-                        user.fullName && (
-                          <Typography variant="body2" sx={{ 
-                            color: COLORS.text.secondary,
-                            fontFamily: FONT_FAMILIES.primary,
+            {(() => {
+              const hasQuery = !!searchQuery?.trim();
+              const usersToShow = hasQuery ? searchedUsers : filteredFollowingUsers;
+
+              if (hasQuery && userSearchLoading) {
+                return (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <CircularProgress size={20} sx={{ color: COLORS.primary.main }} />
+                  </Box>
+                );
+              }
+
+              if (!usersToShow || usersToShow.length === 0) {
+                return (
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="body1" sx={{ 
+                      color: COLORS.text.secondary,
+                      fontFamily: FONT_FAMILIES.primary,
+                    }}>
+                      {hasQuery ? 'No users found' : 'Start following users to message them'}
+                    </Typography>
+                  </Box>
+                );
+              }
+
+              return (
+                <List>
+                  {usersToShow.map((user) => (
+                    <ListItem
+                      button
+                      key={user._id}
+                      onClick={() => {
+                        if (newMessageMode === 'group') {
+                          setGroupMemberIds((prev) => {
+                            const exists = prev.includes(user._id);
+                            return exists ? prev.filter((id) => id !== user._id) : [...prev, user._id];
+                          });
+                          return;
+                        }
+
+                        setSelectedUser(user);
+                        setSelectedConversation(null);
+                        setMessages([]);
+                        setShowNewMessageDrawer(false);
+                        setTypingUsers({});
+                        
+                        const existingConv = conversations.find(conv => {
+                          if (conv?.isGroup) return false;
+                          const otherUser = getOtherUser(conv);
+                          return otherUser?._id === user._id;
+                        });
+                        
+                        if (existingConv) {
+                          handleSelectConversation(existingConv);
+                        } else {
+                          navigate('/direct/inbox');
+                          showSnackbar(`Start chatting with ${user.username}`, 'info');
+                        }
+                      }}
+                      sx={{ 
+                        py: 2,
+                        px: 2.5,
+                        transition: 'all 0.3s ease',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                        '&:hover': {
+                          bgcolor: alpha(COLORS.primary.main, 0.1),
+                          transform: 'translateX(4px)',
+                        },
+                        '&:last-child': {
+                          borderBottom: 'none',
+                        }
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar 
+                          src={user.profilePicture} 
+                          alt={user.username} 
+                          sx={{
+                            width: 48,
+                            height: 48,
+                            transition: 'transform 0.3s ease',
+                            border: `2px solid ${alpha(COLORS.primary.main, 0.3)}`,
+                            '&:hover': {
+                              transform: 'scale(1.1) rotate(5deg)',
+                            }
+                          }}
+                        >
+                          {user.username?.charAt(0).toUpperCase()}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="subtitle1" sx={{ 
+                            fontWeight: 600, 
+                            fontFamily: FONT_FAMILIES.elegant,
+                            color: COLORS.text.primary,
                           }}>
-                            {user.fullName}
+                            {user.username}
                           </Typography>
-                        )
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            )}
+                        }
+                        secondary={
+                          user.fullName && (
+                            <Typography variant="body2" sx={{ 
+                              color: COLORS.text.secondary,
+                              fontFamily: FONT_FAMILIES.primary,
+                            }}>
+                              {user.fullName}
+                            </Typography>
+                          )
+                        }
+                      />
+
+                      {newMessageMode === 'group' && (
+                        <Chip
+                          label={groupMemberIds.includes(user._id) ? 'Added' : 'Add'}
+                          size="small"
+                          color={groupMemberIds.includes(user._id) ? 'primary' : 'default'}
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </ListItem>
+                  ))}
+                </List>
+              );
+            })()}
           </Box>
+
+          {newMessageMode === 'group' && (
+            <Box sx={{ p: 2.5, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={createGroupConversation}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 3,
+                  py: 1.5,
+                  fontFamily: FONT_FAMILIES.display,
+                  background: COLORS.primary.gradient,
+                  '&:hover': { background: COLORS.primary.gradient },
+                }}
+              >
+                Create Group ({groupMemberIds.length})
+              </Button>
+            </Box>
+          )}
         </Box>
       </Drawer>
 

@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
+  conversationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Conversation',
+    default: null,
+    index: true,
+  },
   sender: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -9,7 +15,7 @@ const messageSchema = new mongoose.Schema({
   receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    default: null
   },
   content: {
     type: String,
@@ -18,6 +24,18 @@ const messageSchema = new mongoose.Schema({
   image: {
     type: String,
     default: null
+  },
+  fileName: {
+    type: String,
+    default: null,
+  },
+  fileSize: {
+    type: Number,
+    default: null,
+  },
+  fileType: {
+    type: String,
+    default: null,
   },
   isRead: {
     type: Boolean,
@@ -58,6 +76,7 @@ const messageSchema = new mongoose.Schema({
 
 // Index for faster queries
 messageSchema.index({ sender: 1, receiver: 1, createdAt: -1 });
+messageSchema.index({ conversationId: 1, createdAt: 1 });
 messageSchema.index({ isRead: 1, receiver: 1 });
 messageSchema.index({ 'reactions.userId': 1 });
 

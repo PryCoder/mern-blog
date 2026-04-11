@@ -22,6 +22,18 @@ const commentSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    reports: {
+      type: Array,
+      default: [],
+    },
+    numberOfReports: {
+      type: Number,
+      default: 0,
+    },
+    reportDetails: {
+      type: Array,
+      default: [],
+    },
   },
   { timestamps: true }
 );

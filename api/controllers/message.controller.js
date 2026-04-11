@@ -2,19 +2,29 @@ import Message from '../models/message.model.js';
 import Conversation from '../models/conversation.model.js';
 import User from '../models/user.model.js';
 import { errorHandler } from '../utils/error.js';
-import { emitToUser, emitToConversation } from '../index.js';
+import { emitToUser, emitToConversation } from '../utils/socketEmit.js';
+import Notification from '../models/notification.model.js';
 
 // Check if user can message another user
 const canMessageUser = async (senderId, receiverId) => {
   try {
-    const sender = await User.findById(senderId);
-    const receiver = await User.findById(receiverId);
+    // Default behavior: allow messaging unless explicitly restricted.
+    // Set REQUIRE_FOLLOW_FOR_MESSAGES=true to enforce follow/follower-only messaging.
+    if (String(process.env.REQUIRE_FOLLOW_FOR_MESSAGES || '').toLowerCase() !== 'true') {
+      return true;
+    }
+
+    const sender = await User.findById(senderId).select('followers following').lean();
+    const receiver = await User.findById(receiverId).select('_id').lean();
 
     if (!sender || !receiver) return false;
 
+    const receiverIdStr = receiverId?.toString();
+    if (!receiverIdStr) return false;
+
     // Check if users follow each other
-    const isFollowing = sender.following.includes(receiverId);
-    const isFollower = sender.followers.includes(receiverId);
+    const isFollowing = Array.isArray(sender.following) && sender.following.some((id) => id.toString() === receiverIdStr);
+    const isFollower = Array.isArray(sender.followers) && sender.followers.some((id) => id.toString() === receiverIdStr);
     
     return isFollowing || isFollower;
   } catch (error) {
@@ -26,12 +36,137 @@ const canMessageUser = async (senderId, receiverId) => {
 // Send a message (handles both text and media from frontend Firebase URL)
 export const sendMessage = async (req, res, next) => {
   try {
-    const { receiverId, content, imageUrl, messageType, replyTo } = req.body;
+    const { receiverId, conversationId, content, imageUrl, messageType, replyTo, fileName, fileSize, fileType } = req.body;
     const senderId = req.user.id;
 
     // Validate input - either content or imageUrl must be provided
-    if (!receiverId || (!content?.trim() && !imageUrl)) {
-      return next(errorHandler(400, 'Receiver ID and message content or image are required'));
+    if ((!receiverId && !conversationId) || (!content?.trim() && !imageUrl)) {
+      return next(errorHandler(400, 'receiverId or conversationId is required, and content or imageUrl must be provided'));
+    }
+
+    // Group conversation send
+    if (conversationId) {
+      const conversation = await Conversation.findById(conversationId).lean();
+      if (!conversation) return next(errorHandler(404, 'Conversation not found'));
+
+      const isParticipant = Array.isArray(conversation.participants) && conversation.participants.some((p) => p.toString() === senderId.toString());
+      if (!isParticipant) return next(errorHandler(403, 'You are not a participant of this conversation'));
+
+      const message = new Message({
+        conversationId,
+        sender: senderId,
+        receiver: null,
+        content: content?.trim() || '',
+        image: imageUrl || null,
+        fileName: fileName || null,
+        fileSize: typeof fileSize === 'number' ? fileSize : null,
+        fileType: fileType || null,
+        messageType: messageType || (imageUrl ? 'image' : 'text'),
+        replyTo: replyTo || null,
+      });
+
+      await message.save();
+
+      // Update conversation
+      const convoToUpdate = await Conversation.findById(conversationId);
+      convoToUpdate.lastMessage = message._id;
+      convoToUpdate.lastMessageAt = Date.now();
+
+      // Ensure unreadCount is usable
+      if (!convoToUpdate.unreadCount || typeof convoToUpdate.unreadCount !== 'object') {
+        convoToUpdate.unreadCount = {};
+      }
+
+      // Increment unread count for all other participants
+      const participantIds = (convoToUpdate.participants || []).map((p) => p.toString());
+      participantIds.forEach((pid) => {
+        if (pid !== senderId.toString()) {
+          const currentUnread = convoToUpdate.unreadCount[pid] || 0;
+          convoToUpdate.unreadCount[pid] = currentUnread + 1;
+        }
+      });
+
+      await convoToUpdate.save();
+
+      const populatedMessage = await Message.findById(message._id)
+        .populate('sender', 'username profilePicture fullName')
+        .populate({
+          path: 'replyTo',
+          populate: {
+            path: 'sender',
+            select: 'username profilePicture'
+          }
+        });
+
+      // Emit to conversation room
+      emitToConversation(conversationId, 'messageAdded', {
+        conversationId,
+        message: populatedMessage,
+        timestamp: new Date(),
+      });
+
+      // Emit to each participant (so their inbox updates even if not in room)
+      participantIds.forEach((pid) => {
+        if (pid !== senderId.toString()) {
+          emitToUser(pid, 'newMessage', {
+            conversationId,
+            message: populatedMessage,
+            unreadCount: convoToUpdate.unreadCount,
+            timestamp: new Date(),
+          });
+        }
+      });
+
+      // Lightweight notifications for each participant except sender
+      await Promise.all(
+        participantIds
+          .filter((pid) => pid !== senderId.toString())
+          .map((pid) => Notification.create({
+            userId: pid,
+            actorId: senderId,
+            type: 'message',
+            title: convoToUpdate.isGroup ? 'New group message' : 'New message',
+            body: convoToUpdate.isGroup && convoToUpdate.name
+              ? `New message in ${convoToUpdate.name}`
+              : 'New message',
+            data: {
+              conversationId: convoToUpdate._id.toString(),
+            },
+          }))
+      );
+
+      participantIds
+        .filter((pid) => pid !== senderId.toString())
+        .forEach((pid) => {
+          emitToUser(pid, 'conversationUpdated', {
+            _id: convoToUpdate._id,
+            participants: convoToUpdate.participants,
+            lastMessage: populatedMessage,
+            lastMessageAt: convoToUpdate.lastMessageAt,
+            unreadCount: convoToUpdate.unreadCount,
+            isGroup: convoToUpdate.isGroup,
+            name: convoToUpdate.name,
+            updatedAt: new Date(),
+          });
+        });
+
+      // Also notify sender inbox
+      emitToUser(senderId, 'conversationUpdated', {
+        _id: convoToUpdate._id,
+        participants: convoToUpdate.participants,
+        lastMessage: populatedMessage,
+        lastMessageAt: convoToUpdate.lastMessageAt,
+        unreadCount: convoToUpdate.unreadCount,
+        isGroup: convoToUpdate.isGroup,
+        name: convoToUpdate.name,
+        updatedAt: new Date(),
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: populatedMessage,
+        conversationId: convoToUpdate._id,
+      });
     }
 
     // Check if sender can message receiver
@@ -59,10 +194,14 @@ export const sendMessage = async (req, res, next) => {
 
     // Create message
     const message = new Message({
+      conversationId: conversation._id,
       sender: senderId,
       receiver: receiverId,
       content: content?.trim() || '',
       image: imageUrl || null,
+      fileName: fileName || null,
+      fileSize: typeof fileSize === 'number' ? fileSize : null,
+      fileType: fileType || null,
       messageType: messageType || (imageUrl ? 'image' : 'text'),
       replyTo: replyTo || null
     });
@@ -100,6 +239,23 @@ export const sendMessage = async (req, res, next) => {
       timestamp: new Date()
     });
 
+    // Persist notification for receiver (bell)
+    const notification = await Notification.create({
+      userId: receiverId,
+      actorId: senderId,
+      type: 'message',
+      title: 'New message',
+      body: `New message from ${populatedMessage.sender?.username || 'someone'}`,
+      data: {
+        conversationId: conversation._id.toString(),
+      },
+    });
+
+    emitToUser(receiverId, 'notificationCreated', {
+      notification,
+      timestamp: new Date(),
+    });
+
     emitToConversation(conversation._id, 'messageAdded', {
       conversationId: conversation._id,
       message: populatedMessage,
@@ -123,6 +279,137 @@ export const sendMessage = async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error in sendMessage:', error);
+    next(error);
+  }
+};
+
+// Create a group conversation
+export const createGroupConversation = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { name, participantIds } = req.body;
+
+    const cleanedName = typeof name === 'string' ? name.trim() : '';
+    if (!cleanedName) {
+      return next(errorHandler(400, 'Group name is required'));
+    }
+
+    if (!Array.isArray(participantIds) || participantIds.length < 2) {
+      return next(errorHandler(400, 'Select at least 2 members to create a group'));
+    }
+
+    const uniqueIds = Array.from(new Set([userId.toString(), ...participantIds.map((id) => id.toString())]));
+    if (uniqueIds.length < 3) {
+      return next(errorHandler(400, 'Group must include at least 3 participants (including you)'));
+    }
+
+    // Validate users exist
+    const users = await User.find({ _id: { $in: uniqueIds } }).select('_id');
+    if (users.length !== uniqueIds.length) {
+      return next(errorHandler(400, 'One or more selected users do not exist'));
+    }
+
+    // Optional restriction: only allow adding users you can message (follow/follower)
+    // Controlled by REQUIRE_FOLLOW_FOR_MESSAGES=true
+    if (String(process.env.REQUIRE_FOLLOW_FOR_MESSAGES || '').toLowerCase() === 'true') {
+      const otherIds = uniqueIds.filter((id) => id !== userId.toString());
+      for (const otherId of otherIds) {
+        const allowed = await canMessageUser(userId, otherId);
+        if (!allowed) {
+          return next(errorHandler(403, 'You can only add users you follow or who follow you'));
+        }
+      }
+    }
+
+    const conversation = await Conversation.create({
+      participants: uniqueIds,
+      isGroup: true,
+      name: cleanedName,
+      createdBy: userId,
+      admins: [userId],
+      unreadCount: {},
+    });
+
+    const populatedConversation = await Conversation.findById(conversation._id)
+      .populate({
+        path: 'participants',
+        select: 'username profilePicture fullName',
+      })
+      .lean();
+
+    // Notify all invited participants
+    uniqueIds
+      .filter((id) => id !== userId.toString())
+      .forEach((id) => {
+        emitToUser(id, 'conversationUpdated', populatedConversation);
+      });
+
+    res.status(201).json({
+      success: true,
+      conversation: populatedConversation,
+    });
+  } catch (error) {
+    console.error('Error in createGroupConversation:', error);
+    next(error);
+  }
+};
+
+// Get messages for a conversation (supports group chats)
+export const getConversationMessages = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId).lean();
+    if (!conversation) return next(errorHandler(404, 'Conversation not found'));
+
+    const isParticipant = Array.isArray(conversation.participants) && conversation.participants.some((p) => p.toString() === userId.toString());
+    if (!isParticipant) return next(errorHandler(403, 'Cannot access these messages'));
+
+    const messages = await Message.find({ conversationId })
+      .populate('sender', 'username profilePicture fullName')
+      .populate('receiver', 'username profilePicture fullName')
+      .populate({
+        path: 'replyTo',
+        populate: {
+          path: 'sender',
+          select: 'username profilePicture'
+        }
+      })
+      .sort({ createdAt: 1 });
+
+    // Reset unread count for current user
+    await Conversation.findByIdAndUpdate(conversationId, {
+      $set: {
+        [`unreadCount.${userId.toString()}`]: 0,
+      },
+    });
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error('Error in getConversationMessages:', error);
+    next(error);
+  }
+};
+
+// Mark a conversation as read (group or 1:1)
+export const markConversationRead = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { conversationId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) return next(errorHandler(404, 'Conversation not found'));
+
+    const isParticipant = Array.isArray(conversation.participants) && conversation.participants.some((p) => p.toString() === userId.toString());
+    if (!isParticipant) return next(errorHandler(403, 'Cannot modify this conversation'));
+
+    conversation.unreadCount[userId.toString()] = 0;
+    await conversation.save();
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Error in markConversationRead:', error);
     next(error);
   }
 };

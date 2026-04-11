@@ -1,5 +1,8 @@
 import Comment from '../models/comment.model.js';
 import { errorHandler } from '../utils/error.js';
+import Post from '../models/post.model.js';
+import Notification from '../models/notification.model.js';
+import { emitToUser } from '../utils/socketEmit.js';
 
 export const createComment = async (req, res, next) => {
   try {
@@ -17,6 +20,28 @@ export const createComment = async (req, res, next) => {
       userId,
     });
     await newComment.save();
+
+    // Notify the post owner (if different from commenter)
+    const post = await Post.findById(postId).select('userId slug title');
+    if (post && post.userId?.toString() !== req.user.id) {
+      const notification = await Notification.create({
+        userId: post.userId,
+        actorId: req.user.id,
+        type: 'comment',
+        title: 'New comment',
+        body: 'Someone commented on your post',
+        data: {
+          postId: post._id.toString(),
+          postSlug: post.slug,
+          commentId: newComment._id.toString(),
+        },
+      });
+
+      emitToUser(post.userId.toString(), 'notificationCreated', {
+        notification,
+        timestamp: new Date(),
+      });
+    }
 
     res.status(200).json(newComment);
   } catch (error) {
@@ -120,3 +145,46 @@ if(!comment) {
     next(error);
   }
  };
+
+export const reportComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) {
+      return next(errorHandler(404, 'Comment not found'));
+    }
+    
+    // Extract reason from request body
+    const { reason } = req.body;
+    
+    const userIndex = comment.reports.indexOf(req.user.id);
+    if (userIndex === -1) {
+      // Add report
+      comment.numberOfReports += 1;
+      comment.reports.push(req.user.id);
+      comment.reportDetails.push({ userId: req.user.id, reason: reason || 'Other' });
+    } else {
+      // Remove report (un-report)
+      comment.numberOfReports -= 1;
+      comment.reports.splice(userIndex, 1);
+      // Remove user's report detail
+      comment.reportDetails = comment.reportDetails.filter(r => r.userId !== req.user.id);
+    }
+    await comment.save();
+    res.status(200).json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getReportedComments = async (req, res, next) => {
+  if (!req.user.isAdmin) {
+    return next(errorHandler(403, 'You are not allowed to view reported comments'));
+  }
+  try {
+    const comments = await Comment.find({ numberOfReports: { $gt: 0 } })
+      .sort({ numberOfReports: -1 });
+    res.status(200).json(comments);
+  } catch (error) {
+    next(error);
+  }
+};

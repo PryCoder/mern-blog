@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
     Card, 
     Avatar, 
@@ -22,6 +23,7 @@ import {
 } from 'react-icons/hi';
 
 export default function HighlightsPage() {
+    const { currentUser } = useSelector((state) => state.user);
     const [highlights, setHighlights] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -30,7 +32,19 @@ export default function HighlightsPage() {
     const [activeStoriesCount, setActiveStoriesCount] = useState(0);
     const [selectedAlbum, setSelectedAlbum] = useState(null);
     const { userId } = useParams();
-    const currentUserId = localStorage.getItem('userId');
+
+    const getCurrentUserId = () => {
+        if (currentUser?._id) return currentUser._id;
+        try {
+            const raw = localStorage.getItem('user');
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed?._id || null;
+        } catch {
+            return null;
+        }
+    };
+
+    const currentUserId = getCurrentUserId();
 
     // API: Get user highlights
     useEffect(() => {
@@ -101,7 +115,6 @@ export default function HighlightsPage() {
         if (!newAlbumName.trim()) return;
 
         try {
-            // This is a simulated API call - you'd need to create this endpoint
             const token = localStorage.getItem('token');
             const response = await fetch('/api/stories/create-highlight-album', {
                 method: 'POST',

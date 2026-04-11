@@ -4,14 +4,15 @@ import { useEffect, useState } from "react"
 import { Button, Textarea } from "flowbite-react";
 import {FaThumbsUp} from 'react-icons/fa';
 import { useSelector } from "react-redux";
+import { MdReport } from 'react-icons/md';
 
-export default function Comment({comment, onLike, onEdit ,onDelete}) {
+export default function Comment({comment, onLike, onEdit ,onDelete, onReport}) {
     const [isEditing, setIsEditing] = useState(false);
     const [ editedContent, setEditedContent] = useState(comment.content);
     const [user, setUser]  = useState({});
     const {currentUser} = useSelector(state => state.user);
 
- useEffect(() =>{
+ useEffect(() => {
     const getUser  = async() => {
         try {
             const res = await fetch(`/api/user/${comment.userId}`);
@@ -94,6 +95,9 @@ export default function Comment({comment, onLike, onEdit ,onDelete}) {
     comment.numberOfLikes > 0 && comment.numberOfLikes + " " + (comment.numberOfLikes === 1 ? 'like' : 'likes')
     }
 </p>
+<Button type='button' onClick={() => onReport(comment._id)} className={`text-gray-400 hover:text-red-500 ${currentUser && comment.reports?.includes(currentUser._id) && '!text-red-500'}`}>
+    <MdReport className="text-lg mr-1"/> Report
+</Button>
 
 {
  currentUser && (currentUser._id === comment.userId || currentUser.isAdmin) && (
@@ -109,6 +113,7 @@ export default function Comment({comment, onLike, onEdit ,onDelete}) {
  Delete
  </Button>
  </>
+
  )
 }
         </div>

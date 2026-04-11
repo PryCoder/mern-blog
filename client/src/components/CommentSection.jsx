@@ -1,22 +1,24 @@
-import {  Alert, Button, Modal, Textarea } from 'flowbite-react'
+import { Alert, Button, Modal, Textarea, Select, Label } from 'flowbite-react'
 import React, { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { Link , Navigate, useNavigate} from 'react-router-dom'
 import Comment from './Comment'
 import { HiOutlineExclamationCircle } from 'react-icons/hi'
 
-
-
 export default function CommentSection({postId}) {
   const {currentUser} = useSelector(state => state.user)
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [commentToReport, setCommentToReport] = useState(null);
+  const [reportReason, setReportReason] = useState('Spam');
   const [commentToDelete , setCommentToDelete] = useState(null);
   const [comments, setComments] = useState([]);
   const navigate = useNavigate();
   console.log(comments);
-   const handleSubmit = async (e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (comment.length > 200) {
       return;
@@ -65,8 +67,6 @@ export default function CommentSection({postId}) {
       if(!currentUser) {
         Navigate('/sign-in')
         return;
-
-
       }
       const res= await fetch(`/api/comment/likeComment/${commentId}`,{
       method: 'PUT',
@@ -80,6 +80,47 @@ export default function CommentSection({postId}) {
       numberOfLikes: data.likes.length,
       } : comment
       ));
+      }
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  const handleReportIntent = (commentId) => {
+    if(!currentUser) {
+      navigate('/sign-in');
+      return;
+    }
+    const targetComment = comments.find(c => c._id === commentId);
+    if (targetComment?.reports?.includes(currentUser._id)) {
+      // Already reported, un-report it directly without modal
+      submitReport(commentId, "");
+    } else {
+      // Open modal to get reason
+      setCommentToReport(commentId);
+      setReportReason('Spam');
+      setShowReportModal(true);
+    }
+  };
+
+  const submitReport = async (commentId, reason) => {
+    try {
+      setShowReportModal(false);
+      const res = await fetch(`/api/comment/reportComment/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setComments(comments.map((comment) =>
+          comment._id === commentId ? {
+            ...comment,
+            reports: data.reports,
+            numberOfReports: data.numberOfReports,
+            reportDetails: data.reportDetails,
+          } : comment
+        ));
       }
     } catch (error) {
       console.log(error.message);
@@ -119,17 +160,15 @@ setShowModal(false);
 }
   return (
     <div className='max-w-2xl mx-auto w-full p-3'>
-        {currentUser ?
-        (
+        {currentUser ? (
             <div className='flex items-center gap-1 my-5 text-gray-500 text-sm'>
                 <p>Signed in as:</p>
                 <img className='h-5 w-5 object-cover rounded-full' src={currentUser.profilePicture} alt=''/>
                 <Link to={'/dashboard?tab=profile'} className='text-xs text-cyan-600 hover:underline'>
                   @{currentUser.username}
                 </Link>
-                </div>
-        ):
-        (
+            </div>
+        ) : (
             <div className='text-sm text-teal-500 my-5 flex gap-1 '>
             You must be signed in to comment.
             <Link className='text-blue-500 hover:underline'  to={'/sign-in'}>
@@ -167,7 +206,7 @@ setShowModal(false);
         </div>{
         comments.map(comment => (
         <Comment key={comment._id}
-        comment={comment}  onLike={handleLike} onEdit={handleEdit}
+        comment={comment}  onLike={handleLike} onEdit={handleEdit} onReport={handleReportIntent}
          onDelete={(commentId) => {
         setShowModal(true)
         setCommentToDelete(commentId)
@@ -205,7 +244,32 @@ setShowModal(false);
           </Modal.Body>
         </div>
       </Modal>
+
+      {/* Report Modal */}
+      <Modal show={showReportModal} onClose={() => setShowReportModal(false)} popup size="md">
+        <Modal.Header />
+        <Modal.Body>
+          <div className="space-y-6">
+            <h3 className="text-xl font-medium text-gray-900 dark:text-white">Reason for reporting</h3>
+            <div>
+              <div className="mb-2 block">
+                <Label htmlFor="reasons" value="Select a reason" />
+              </div>
+              <Select id="reasons" required value={reportReason} onChange={(e) => setReportReason(e.target.value)}>
+                <option value="Spam">Spam</option>
+                <option value="Hate speech">Hate speech or harassment</option>
+                <option value="Sexual content">Sexual content</option>
+                <option value="Violence">Violence or physical harm</option>
+                <option value="Bullying">Bullying</option>
+                <option value="Other">Other</option>
+              </Select>
+            </div>
+            <div className="w-full">
+              <Button onClick={() => submitReport(commentToReport, reportReason)}>Submit Report</Button>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
  </div> 
   )
-
 }

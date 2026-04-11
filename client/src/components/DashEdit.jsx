@@ -1,13 +1,12 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Modal, TextInput } from 'flowbite-react';
-import { getDownloadURL, ref, getStorage, uploadBytesResumable } from 'firebase/storage';
-import { app } from '../firebase';
 import { CircularProgressbar } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { updateStart, updateSuccess, updateFailure, deleteUserStart, deleteUserSuccess, deleteUserFailure, signoutSuccess } from '../redux/user/userSlice';
 import { HiOutlineExclamationCircle } from 'react-icons/hi';
 import { Link } from 'react-router-dom';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 export default function DashProfile() {
   const { currentUser, error, loading } = useSelector(state => state.user);
@@ -40,32 +39,21 @@ export default function DashProfile() {
   const uploadImage = async () => {
     setImageFileUploading(true);
     setImageFileUploadError(null);
-    const storage = getStorage(app);
-    const fileName = new Date().getTime() + imageFile.name;
-    const storageRef = ref(storage, fileName);
-    const uploadTask = uploadBytesResumable(storageRef, imageFile);
-
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setImageFileUploadProgress(progress.toFixed(0));
-      },
-      (error) => {
-        setImageFileUploadError('Could not upload image (File must be less than 2MB)');
-        setImageFileUploadProgress(null);
-        setImageFile(null);
-        setImageFileUrl(null);
-        setImageFileUploading(false);
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          setImageFileUrl(downloadURL);
-          setFormData({ ...formData, profilePicture: downloadURL });
-          setImageFileUploading(false);
-        });
-      }
-    );
+    try {
+      const downloadURL = await uploadToCloudinary(imageFile, (progress) => {
+        setImageFileUploadProgress(progress);
+      });
+      setImageFileUrl(downloadURL);
+      setFormData({ ...formData, profilePicture: downloadURL });
+      setImageFileUploading(false);
+    } catch (error) {
+      console.error('Upload error:', error);
+      setImageFileUploadError('Could not upload image. Check Cloudinary credentials.');
+      setImageFileUploadProgress(null);
+      setImageFile(null);
+      setImageFileUrl(null);
+      setImageFileUploading(false);
+    }
   };
 
   const handleChange = (e) => {

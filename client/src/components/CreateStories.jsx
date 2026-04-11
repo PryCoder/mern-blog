@@ -2,9 +2,8 @@ import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Textarea, Spinner, Card } from 'flowbite-react';
 import { HiCamera, HiVideoCamera, HiOutlineEmojiHappy, HiOutlineLocationMarker, HiOutlineTag } from 'react-icons/hi';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { app } from '../firebase';
 import imageCompression from 'browser-image-compression';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 export default function CreateStoryPage() {
     const [file, setFile] = useState(null);
@@ -59,7 +58,7 @@ export default function CreateStoryPage() {
         }
     };
 
-    // Upload to Firebase and create story
+    // Upload to Cloudinary and create story
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!file) {
@@ -72,76 +71,50 @@ export default function CreateStoryPage() {
             setError('');
             setSuccess('');
 
-            // Upload to Firebase
-            const storage = getStorage(app);
-            const fileName = `stories/${Date.now()}-${file.name}`;
-            const storageRef = ref(storage, fileName);
+            // Upload to Cloudinary
+            const downloadURL = await uploadToCloudinary(file, (progress) => {
+                setUploadProgress(progress);
+            });
+
+            // Prepare story data for MongoDB
+            const storyData = {
+                mediaType,
+                mediaUrl: downloadURL,
+                caption: caption.trim(),
+                duration: parseInt(duration),
+                location: location.trim(),
+                hashtags: hashtags.split('#').filter(tag => tag.trim()).map(tag => tag.trim())
+            };
+
+            // Save to MongoDB using createStory API
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/stories/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(storyData)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to create story');
+            }
+
+            setSuccess('Story created successfully!');
+            setUploading(false);
             
-            const uploadTask = uploadBytesResumable(storageRef, file);
+            // Reset form after 2 seconds
+            setTimeout(() => {
+                resetForm();
+                navigate('/stories');
+            }, 2000);
 
-            // Track upload progress
-            uploadTask.on(
-                'state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadProgress(Math.round(progress));
-                },
-                (error) => {
-                    console.error('Upload error:', error);
-                    setError('Upload failed');
-                    setUploading(false);
-                },
-                async () => {
-                    try {
-                        // Get download URL
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-                        // Prepare story data for MongoDB
-                        const storyData = {
-                            mediaType,
-                            mediaUrl: downloadURL,
-                            caption: caption.trim(),
-                            duration: parseInt(duration),
-                            location: location.trim(),
-                            hashtags: hashtags.split('#').filter(tag => tag.trim()).map(tag => tag.trim())
-                        };
-
-                        // Save to MongoDB using createStory API
-                        const token = localStorage.getItem('token');
-                        const response = await fetch('/api/stories/create', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify(storyData)
-                        });
-
-                        const data = await response.json();
-
-                        if (!response.ok) {
-                            throw new Error(data.message || 'Failed to create story');
-                        }
-
-                        setSuccess('Story created successfully!');
-                        setUploading(false);
-                        
-                        // Reset form after 2 seconds
-                        setTimeout(() => {
-                            resetForm();
-                            navigate('/stories');
-                        }, 2000);
-
-                    } catch (error) {
-                        console.error('Save story error:', error);
-                        setError(error.message);
-                        setUploading(false);
-                    }
-                }
-            );
         } catch (error) {
             console.error('Submit error:', error);
-            setError('An error occurred');
+            setError(error.message || 'Upload failed. Check Cloudinary credentials.');
             setUploading(false);
         }
     };

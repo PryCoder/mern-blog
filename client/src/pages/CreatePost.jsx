@@ -1,13 +1,12 @@
-import { getDownloadURL, getStorage, ref, uploadBytesResumable } from 'firebase/storage';
 import { Alert, Button, FileInput, Select, TextInput } from 'flowbite-react';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-import { app } from '../firebase';
 import { CircularProgressbar } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { useNavigate } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 export default function CreatePost() {
     const [file, setFile] = useState(null);
@@ -16,6 +15,7 @@ export default function CreatePost() {
     const [formData, setFormData] = useState({});
     const [publishError, setPublishError] = useState(null);
     const navigate = useNavigate();
+    const uploadInProgressRef = useRef(false);
 
     const handleFileChange = async (e) => {
         const selectedFile = e.target.files[0];
@@ -37,38 +37,42 @@ export default function CreatePost() {
 
     const handleUploadImage = async () => {
         try {
+            // ✅ Prevent concurrent uploads
+            if (uploadInProgressRef.current) {
+                console.warn('Upload already in progress');
+                return;
+            }
+
+            // ✅ Validate file exists
             if (!file) {
                 setImageFileUploadError('Please select an image');
                 return;
             }
-            setImageFileUploadError(null);
-            const storage = getStorage(app);
-            const fileName = new Date().getTime() + '-' + file.name;
-            const storageRef = ref(storage, fileName);
-            const uploadTask = uploadBytesResumable(storageRef, file);
 
-            uploadTask.on(
-                'state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setImageFileUploadProgress(progress.toFixed(0));
-                },
-                (error) => {
-                    console.error('Upload error:', error);
-                    setImageFileUploadError('Image upload failed');
-                    setImageFileUploadProgress(null);
-                },
-                async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    setImageFileUploadProgress(null);
-                    setImageFileUploadError(null);
-                    setFormData({ ...formData, image: downloadURL });
-                }
-            );
+            // ✅ Prevent re-upload if image already set
+            if (formData.image) {
+                setImageFileUploadError('Image already uploaded. Select a different file to replace it.');
+                return;
+            }
+
+            setImageFileUploadError(null);
+            uploadInProgressRef.current = true;
+
+            // Upload to Cloudinary
+            const downloadURL = await uploadToCloudinary(file, (progress) => {
+                setImageFileUploadProgress(progress);
+            });
+
+            setImageFileUploadProgress(null);
+            setImageFileUploadError(null);
+            setFormData({ ...formData, image: downloadURL });
+            setFile(null); // ✅ Clear file after successful upload
+            uploadInProgressRef.current = false;
         } catch (error) {
             console.error('Upload failed:', error);
-            setImageFileUploadError('Image upload failed');
+            setImageFileUploadError('Image upload failed. Check Cloudinary credentials.');
             setImageFileUploadProgress(null);
+            uploadInProgressRef.current = false;
         }
     };
 
@@ -135,13 +139,15 @@ export default function CreatePost() {
                         size='sm'
                         outline="true"
                         onClick={handleUploadImage}
-                        disabled={imageUploadProgress !== null}
+                        disabled={imageUploadProgress !== null || !file || formData.image !== undefined}
                     >
                         <span className="items-center flex justify-center bg-white text-gray-900 transition-all duration-75 ease-in group-enabled:group-hover:bg-opacity-0 group-enabled:group-hover:text-inherit dark:bg-gray-900 dark:text-white w-full rounded-md text-sm px-4 py-2 border border-transparent">
                             {imageUploadProgress !== null ? (
                                 <div className='w-16 h-16'>
                                     <CircularProgressbar value={imageUploadProgress} text={`${imageUploadProgress}%`} />
                                 </div>
+                            ) : formData.image ? (
+                                '✓ Image Uploaded'
                             ) : (
                                 'Upload Image'
                             )}

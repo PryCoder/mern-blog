@@ -8,8 +8,10 @@ export default function DashUsers() {
   const { currentUser } = useSelector((state) => state.user);
   const [users, setUsers] = useState([]);
   const [showMore, setShowMore] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState('');
+  const [userToToggle, setUserToToggle] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -49,21 +51,60 @@ export default function DashUsers() {
   };
 
   const handleDeleteUser = async () => {
-   try {
-   const res = await fetch(`/api/user/delete/${userIdToDelete}`,{
-   method:'DELETE',
-   });
-   const data = await res.json();
-   if(res.ok) {
-   setUsers((prev) => prev.filter((user) => user._id !== userIdToDelete));
-   setShowModal(false);
-   }else{
-   console.log(data.message);
-   }
-   } catch(error) {
-   console.log(error.message);
-   }
+    try {
+      const res = await fetch(`/api/user/delete/${userIdToDelete}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers((prev) => prev.filter((user) => user._id !== userIdToDelete));
+        setShowDeleteModal(false);
+      } else {
+        console.log(data.message);
+      }
+    } catch (error) {
+      console.log(error.message);
+    }
   };
+
+ // In DashUsers.jsx, update the handleToggleAdmin function:
+
+const handleToggleAdmin = async () => {
+  if (!userToToggle) return;
+  
+  try {
+    setError(null); // Clear any previous errors
+    const res = await fetch(`/api/user/toggle-admin/${userToToggle._id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        isAdmin: !userToToggle.isAdmin
+      }),
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      setUsers((prev) =>
+        prev.map((user) =>
+          user._id === userToToggle._id
+            ? { ...user, isAdmin: !user.isAdmin }
+            : user
+        )
+      );
+      setShowAdminModal(false);
+      setUserToToggle(null);
+    } else {
+      console.log('Error response:', data);
+      setError(data.message || 'Failed to update admin status');
+    }
+  } catch (error) {
+    console.log('Network error:', error);
+    setError('Failed to update admin status. Please check your connection.');
+  }
+};
 
   return (
     <div className='table-auto overflow-x-scroll md:mx-auto p-3'>
@@ -79,9 +120,12 @@ export default function DashUsers() {
               <Table.HeadCell>Admin</Table.HeadCell>
               <Table.HeadCell>Delete</Table.HeadCell>
             </Table.Head>
-             {users.map((user) => (
-              <Table.Body className='divide-y' key={user._id}>
-                <Table.Row className='bg-white dark:border-gray-700 dark:bg-gray-800'>
+            <Table.Body className='divide-y'>
+              {users.map((user) => (
+                <Table.Row 
+                  key={user._id} 
+                  className='bg-white dark:border-gray-700 dark:bg-gray-800'
+                >
                   <Table.Cell>
                     {new Date(user.createdAt).toLocaleDateString()}
                   </Table.Cell>
@@ -95,26 +139,52 @@ export default function DashUsers() {
                   <Table.Cell>{user.username}</Table.Cell>
                   <Table.Cell>{user.email}</Table.Cell>
                   <Table.Cell>
-                    {user.isAdmin ? (
-                      <FaCheck className='text-green-500' />
-                    ) : (
-                      <FaTimes className='text-red-500' />
-                    )}
+                    <span
+                      onClick={() => {
+                        // Prevent toggling your own admin status
+                        if (user._id === currentUser._id) {
+                          setError("You cannot change your own admin status");
+                          return;
+                        }
+                        setUserToToggle(user);
+                        setShowAdminModal(true);
+                      }}
+                      className={`font-medium cursor-pointer flex items-center justify-center ${
+                        user._id === currentUser._id 
+                          ? 'cursor-not-allowed opacity-50' 
+                          : 'hover:underline'
+                      }`}
+                    >
+                      {user.isAdmin ? (
+                        <FaCheck className='text-green-500' />
+                      ) : (
+                        <FaTimes className='text-red-500' />
+                      )}
+                    </span>
                   </Table.Cell>
                   <Table.Cell>
                     <span
                       onClick={() => {
-                        setShowModal(true);
+                        // Prevent deleting yourself
+                        if (user._id === currentUser._id) {
+                          setError("You cannot delete your own account");
+                          return;
+                        }
+                        setShowDeleteModal(true);
                         setUserIdToDelete(user._id);
                       }}
-                      className='font-medium text-red-500 hover:underline cursor-pointer'
+                      className={`font-medium text-red-500 ${
+                        user._id === currentUser._id
+                          ? 'cursor-not-allowed opacity-50'
+                          : 'hover:underline cursor-pointer'
+                      }`}
                     >
                       Delete
                     </span>
                   </Table.Cell>
                 </Table.Row>
-              </Table.Body>
-            ))}
+              ))}
+            </Table.Body>
           </Table>
           {showMore && (
             <button
@@ -128,9 +198,11 @@ export default function DashUsers() {
       ) : (
         <p>You have no users yet!</p>
       )}
+
+      {/* Delete Confirmation Modal */}
       <Modal
-        show={showModal}
-        onClose={() => setShowModal(false)}
+        show={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
         popup
         size='md'
       >
@@ -145,7 +217,45 @@ export default function DashUsers() {
               <Button color='failure' onClick={handleDeleteUser}>
                 Yes, I'm sure
               </Button>
-              <Button color='gray' onClick={() => setShowModal(false)}>
+              <Button color='gray' onClick={() => setShowDeleteModal(false)}>
+                No, cancel
+              </Button>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
+
+      {/* Admin Toggle Confirmation Modal */}
+      <Modal
+        show={showAdminModal}
+        onClose={() => {
+          setShowAdminModal(false);
+          setUserToToggle(null);
+        }}
+        popup
+        size='md'
+      >
+        <Modal.Header />
+        <Modal.Body>
+          <div className='text-center'>
+            <HiOutlineExclamationCircle className='h-14 w-14 text-gray-400 dark:text-gray-200 mb-4 mx-auto' />
+            <h3 className='mb-5 text-lg text-gray-500 dark:text-gray-400'>
+              Are you sure you want to {userToToggle?.isAdmin ? 'remove' : 'grant'} admin privileges for {userToToggle?.username}?
+            </h3>
+            <div className='flex justify-center gap-4'>
+              <Button className='bg-red-500'
+                color={userToToggle?.isAdmin ? 'failure' : 'success'}
+                onClick={handleToggleAdmin}
+              >
+                Yes, {userToToggle?.isAdmin ? 'remove' : 'grant'} admin
+              </Button>
+              <Button 
+                color='gray' 
+                onClick={() => {
+                  setShowAdminModal(false);
+                  setUserToToggle(null);
+                }}
+              >
                 No, cancel
               </Button>
             </div>
@@ -154,4 +264,4 @@ export default function DashUsers() {
       </Modal>
     </div>
   );
-  }
+}

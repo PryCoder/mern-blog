@@ -389,9 +389,64 @@ export const getUserHighlights = async (req, res, next) => {
             return acc;
         }, {});
 
+        // Include any user-created albums even if they have no stories yet
+        const albumNames = Array.isArray(user.highlightAlbums) ? user.highlightAlbums : [];
+        for (const albumNameRaw of albumNames) {
+            const albumName = (albumNameRaw || '').trim();
+            if (!albumName) continue;
+            if (!groupedHighlights[albumName]) {
+                groupedHighlights[albumName] = {
+                    albumName,
+                    coverImage: user.profilePicture,
+                    stories: []
+                };
+            }
+        }
+
         res.status(200).json({
             success: true,
             highlights: Object.values(groupedHighlights)
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Create a highlight album (persists on the user profile)
+export const createHighlightAlbum = async (req, res, next) => {
+    try {
+        const { albumName, userId } = req.body;
+        const currentUserId = req.user.id;
+
+        const normalized = typeof albumName === 'string' ? albumName.trim() : '';
+        if (!normalized) {
+            return next(errorHandler(400, 'Album name is required'));
+        }
+
+        if (!userId || userId.toString() !== currentUserId) {
+            return next(errorHandler(403, 'You can only create albums for your own account'));
+        }
+
+        const user = await User.findById(currentUserId);
+        if (!user) {
+            return next(errorHandler(404, 'User not found'));
+        }
+
+        if (!Array.isArray(user.highlightAlbums)) {
+            user.highlightAlbums = [];
+        }
+
+        const exists = user.highlightAlbums.some((n) => (n || '').trim().toLowerCase() === normalized.toLowerCase());
+        if (!exists) {
+            user.highlightAlbums.push(normalized);
+            await user.save();
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'Highlight album created',
+            albumName: normalized,
+            highlightAlbums: user.highlightAlbums,
         });
     } catch (error) {
         next(error);
