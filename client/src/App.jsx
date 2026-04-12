@@ -22,6 +22,7 @@ import MessagingPage from './components/MessagingPage';
 import DashReportedComments from './components/DashReportedComments';
 import FollowingFeed from './pages/FollowingFeed';
 import Notifications from './pages/Notifications';
+import PublicRoute from './components/PublicRoute';
 
 export default function App() {
   return (
@@ -31,8 +32,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
-        <Route path="/sign-in" element={<Signin />} />
-        <Route path="/sign-up" element={<SignUp />} />
+        {/* Public-only routes: redirect to '/' if already authenticated */}
+        <Route element={<PublicRoute />}>
+          <Route path="/sign-in" element={<Signin />} />
+          <Route path="/sign-up" element={<SignUp />} />
+        </Route>
         <Route path="/projects" element={<Projects />} />
         <Route path="/post/:postSlug" element={<PostPage/>} />
         <Route path="/profile/:userId" element={<UserProfile />} />

@@ -25,6 +25,7 @@ import html2canvas from 'html2canvas';
 export default function DashboardComp() {
   const [users, setUsers] = useState([]);
   const [comments, setComments] = useState([]);
+  const [commentUsersById, setCommentUsersById] = useState({});
   const [posts, setPosts] = useState([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPosts, setTotalPosts] = useState(0);
@@ -33,15 +34,31 @@ export default function DashboardComp() {
   const [lastMonthPosts, setLastMonthPosts] = useState(0);
   const [lastMonthComments, setLastMonthComments] = useState(0);
   const { currentUser } = useSelector((state) => state.user);
+  const token = localStorage.getItem('token');
   
   // Loading and Error States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!currentUser?.isAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    if (!token) {
+      setError('Unauthorized: missing token');
+      setLoading(false);
+      return;
+    }
+
     const fetchUsers = async () => {
       try {
-        const res = await fetch('/api/user/getusers?limit=5');
+        const res = await fetch('/api/user/getusers?limit=5', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const data = await res.json();
         if (res.ok) {
           setUsers(data.users);
@@ -57,7 +74,11 @@ export default function DashboardComp() {
 
     const fetchPosts = async () => {
       try {
-        const res = await fetch('/api/post/getposts?limit=5');
+        const res = await fetch('/api/post/getposts?limit=5', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const data = await res.json();
         if (res.ok) {
           setPosts(data.posts);
@@ -73,7 +94,11 @@ export default function DashboardComp() {
 
     const fetchComments = async () => {
       try {
-        const res = await fetch('/api/comment/getcomments?limit=5');
+        const res = await fetch('/api/comment/getcomments?limit=5', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const data = await res.json();
         if (res.ok) {
           setComments(data.comments);
@@ -87,12 +112,46 @@ export default function DashboardComp() {
       }
     };
 
-    if (currentUser.isAdmin) {
-      setLoading(true);
-      Promise.all([fetchUsers(), fetchPosts(), fetchComments()])
-        .finally(() => setLoading(false));
-    }
-  }, [currentUser]);
+    setLoading(true);
+    Promise.all([fetchUsers(), fetchPosts(), fetchComments()]).finally(() => setLoading(false));
+  }, [currentUser?.isAdmin, token]);
+
+  useEffect(() => {
+    if (!comments || comments.length === 0) return;
+
+    const userIds = Array.from(
+      new Set(comments.map((c) => c.userId).filter(Boolean))
+    );
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        userIds.map(async (userId) => {
+          try {
+            const res = await fetch(`/api/user/${userId}`);
+            if (!res.ok) return [userId, null];
+            const data = await res.json();
+            return [userId, data?.username || null];
+          } catch {
+            return [userId, null];
+          }
+        })
+      );
+
+      if (cancelled) return;
+      setCommentUsersById((prev) => {
+        const next = { ...prev };
+        for (const [userId, username] of entries) {
+          if (username) next[userId] = username;
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [comments]);
 
   // Prepare data for the graph
   const chartData = [
@@ -138,8 +197,12 @@ export default function DashboardComp() {
     <div className="p-3 md:mx-auto">
       {loading && <div className="text-center">Loading...</div>}
       {error && <div className="text-red-500 text-center">{error}</div>}
+
+      {!loading && !error && !currentUser?.isAdmin && (
+        <div className="text-center text-gray-500">You are not authorized to view the admin dashboard.</div>
+      )}
       
-      {!loading && !error && (
+      {!loading && !error && currentUser?.isAdmin && (
         <>
           <div className="flex-wrap flex gap-4 justify-center">
             {/* User Card */}
@@ -268,8 +331,12 @@ export default function DashboardComp() {
                 comments.map((comment) => (
                   <Table.Body key={comment._id} className="divide-y">
                     <Table.Row className="bg-white dark:border-gray-700 dark:bg-gray-800">
-                      <Table.Cell>{comment.text}</Table.Cell>
-                      <Table.Cell>{comment.username}</Table.Cell>
+                      <Table.Cell className="max-w-md truncate">{comment.content}</Table.Cell>
+                      <Table.Cell>
+                        {commentUsersById[comment.userId]
+                          ? `@${commentUsersById[comment.userId]}`
+                          : comment.userId}
+                      </Table.Cell>
                     </Table.Row>
                   </Table.Body>
                 ))}
@@ -296,7 +363,9 @@ export default function DashboardComp() {
                   <Table.Body key={post._id} className="divide-y">
                     <Table.Row className="bg-white dark:border-gray-700 dark:bg-gray-800">
                       <Table.Cell>{post.title}</Table.Cell>
-                      <Table.Cell>{post.username}</Table.Cell>
+                      <Table.Cell>
+                        {post.userId?.username ? `@${post.userId.username}` : post.username || post.userId}
+                      </Table.Cell>
                     </Table.Row>
                   </Table.Body>
                 ))}

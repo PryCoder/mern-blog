@@ -6,6 +6,7 @@ import { FaCheck, FaTimes } from 'react-icons/fa';
 
 export default function DashUsers() {
   const { currentUser } = useSelector((state) => state.user);
+  const token = localStorage.getItem('token');
   const [users, setUsers] = useState([]);
   const [showMore, setShowMore] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -17,7 +18,11 @@ export default function DashUsers() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch(`/api/user/getusers`);
+        const res = await fetch(`/api/user/getusers`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         setUsers(data.users || []);
@@ -29,15 +34,19 @@ export default function DashUsers() {
         setError('Failed to fetch users. Please try again later.');
       }
     };
-    if (currentUser?.isAdmin) {
+    if (currentUser?.isAdmin && token) {
       fetchUsers();
     }
-  }, [currentUser?.isAdmin]);
+  }, [currentUser?.isAdmin, token]);
 
   const handleShowMore = async () => {
     const startIndex = users.length;
     try {
-      const res = await fetch(`/api/user/getusers?startIndex=${startIndex}`);
+      const res = await fetch(`/api/user/getusers?startIndex=${startIndex}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       setUsers((prev) => [...prev, ...(data.users || [])]);
@@ -54,6 +63,9 @@ export default function DashUsers() {
     try {
       const res = await fetch(`/api/user/delete/${userIdToDelete}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       const data = await res.json();
       if (res.ok) {
@@ -78,6 +90,7 @@ const handleToggleAdmin = async () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         isAdmin: !userToToggle.isAdmin

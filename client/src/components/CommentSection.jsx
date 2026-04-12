@@ -265,7 +265,7 @@ setShowModal(false);
               </Select>
             </div>
             <div className="w-full">
-              <Button onClick={() => submitReport(commentToReport, reportReason)}>Submit Report</Button>
+              <Button className='bg-red-500' onClick={() => submitReport(commentToReport, reportReason)}>Submit Report</Button>
             </div>
           </div>
         </Modal.Body>

@@ -6,6 +6,7 @@ import { FaTrash } from 'react-icons/fa';
 
 export default function DashReportedComments() {
   const { currentUser } = useSelector((state) => state.user);
+  const token = localStorage.getItem('token');
   const [reportedComments, setReportedComments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState(null);
@@ -14,7 +15,11 @@ export default function DashReportedComments() {
   useEffect(() => {
     const fetchReportedComments = async () => {
       try {
-        const res = await fetch('/api/comment/getReportedComments');
+        const res = await fetch('/api/comment/getReportedComments', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const data = await res.json();
         if (res.ok) {
           setReportedComments(data);
@@ -23,16 +28,19 @@ export default function DashReportedComments() {
         console.log(error.message);
       }
     };
-    if (currentUser.isAdmin) {
+    if (currentUser?.isAdmin && token) {
       fetchReportedComments();
     }
-  }, [currentUser._id]);
+  }, [currentUser?._id, currentUser?.isAdmin, token]);
 
   const handleDeleteComment = async () => {
     setShowModal(false);
     try {
       const res = await fetch(`/api/comment/deleteComment/${commentToDelete}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (res.ok) {
         setReportedComments((prev) => prev.filter((c) => c._id !== commentToDelete));
@@ -46,6 +54,9 @@ export default function DashReportedComments() {
     try {
       const res = await fetch(`/api/user/delete/${userId}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       if (res.ok) {
          setReportedComments((prev) => prev.filter((c) => c.userId !== userId));
@@ -58,7 +69,7 @@ export default function DashReportedComments() {
 
   return (
     <div className='table-auto overflow-x-scroll md:mx-auto p-3 scrollbar scrollbar-track-slate-100 scrollbar-thumb-slate-300 dark:scrollbar-track-slate-700 dark:scrollbar-thumb-slate-500 w-full'>
-      {currentUser.isAdmin && reportedComments.length > 0 ? (
+      {currentUser?.isAdmin && reportedComments.length > 0 ? (
         <>
           <Table hoverable className='shadow-md'>
             <Table.Head>

@@ -58,7 +58,7 @@ export default function DashSidebar() {
             <Sidebar.Item
               active={tab === 'profile'}
               icon={HiUser}
-              label={currentUser.isAdmin ? 'Admin' : 'User'}
+              label={currentUser?.isAdmin ? 'Admin' : 'User'}
               labelColor="dark"
               as="div"
             >
@@ -77,7 +77,7 @@ export default function DashSidebar() {
             </Sidebar.Item>
           </Link>
 
-          {currentUser.isAdmin && (
+          {currentUser?.isAdmin && (
             <Link to="/dashboard?tab=posts">
               <Sidebar.Item
                 active={tab === 'posts'}
@@ -89,7 +89,7 @@ export default function DashSidebar() {
             </Link>
           )}
 
-          {currentUser.isAdmin && (
+          {currentUser?.isAdmin && (
             <>
               <Link to="/dashboard?tab=users">
                 <Sidebar.Item

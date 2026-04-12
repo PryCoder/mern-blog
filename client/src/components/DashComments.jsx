@@ -5,6 +5,7 @@ import { HiOutlineExclamationCircle } from 'react-icons/hi';
 
 export default function DashComments() {
   const { currentUser } = useSelector((state) => state.user);
+  const token = localStorage.getItem('token');
   const [comments, setComments] = useState([]);
   const [showMore, setShowMore] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -15,7 +16,11 @@ export default function DashComments() {
   useEffect(() => {
     const fetchComments = async () => {
       try {
-        const res = await fetch(`/api/comment/getcomments`);
+        const res = await fetch(`/api/comment/getcomments`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         if (!res.ok) throw new Error(`Server error: ${res.status}`);
         const data = await res.json();
         setComments(data.comments || []);
@@ -30,15 +35,19 @@ export default function DashComments() {
       }
     };
 
-    if (currentUser?.isAdmin) {
+    if (currentUser?.isAdmin && token) {
       fetchComments();
     }
-  }, [currentUser?.isAdmin]);
+  }, [currentUser?.isAdmin, token]);
 
   const handleShowMore = async () => {
     const startIndex = comments.length;
     try {
-      const res = await fetch(`/api/comment/getcomments?startIndex=${startIndex}`);
+      const res = await fetch(`/api/comment/getcomments?startIndex=${startIndex}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       setComments((prev) => [...prev, ...(data.comments || [])]);
@@ -56,6 +65,9 @@ export default function DashComments() {
     try {
       const res = await fetch(`/api/comment/deleteComment/${commentIdToDelete}`, {
         method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
       const data = await res.json();
       if (res.ok) {
