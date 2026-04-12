@@ -26,11 +26,14 @@ export default function DashSidebar() {
     try {
       const res = await fetch('/api/user/signout', {
         method: 'POST',
+        credentials: 'include',
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        console.log(data.message);
+        console.log(data?.message || 'Sign out failed');
       } else {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         dispatch(signoutSuccess());
       }
     } catch (error) {

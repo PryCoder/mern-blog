@@ -68,13 +68,22 @@ export default function Header() {
 
   const handleSignout = async () => {
     try {
-      const res = await fetch('/api/user/signout', { method: "POST" });
+      const res = await fetch('/api/user/signout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
       if (!res.ok) {
-        const data = await res.json();
-        console.log(data.message);
-      } else {
-        dispatch(signoutSuccess());
+        const data = await res.json().catch(() => null);
+        console.log(data?.message || 'Sign out failed');
+        return;
       }
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      socketService.disconnect();
+      dispatch(signoutSuccess());
+      navigate('/sign-in');
     } catch (error) {
       console.log(error.message);
     }
